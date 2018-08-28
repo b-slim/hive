@@ -10,6 +10,7 @@ import kafka.utils.ZkUtils;
 import org.apache.hadoop.service.AbstractService;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
@@ -26,6 +27,10 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
 
 /**
@@ -51,6 +56,9 @@ public class SingleNodeKafkaCluster extends AbstractService {
     properties.setProperty("host.name", LOCALHOST);
     properties.setProperty("port", Integer.toString(BROKER_PORT));
     properties.setProperty("log.dir", logDir);
+    // This property is very important, we are sending form records with a specific time
+    // Thus need to make sure that they don't get DELETED
+    properties.setProperty("log.retention.hours", String.valueOf(Integer.MAX_VALUE));
     properties.setProperty("log.flush.interval.messages", String.valueOf(1));
     properties.setProperty("offsets.topic.replication.factor", String.valueOf(1));
     properties.setProperty("offsets.topic.num.partitions", String.valueOf(1));
@@ -97,7 +105,7 @@ public class SingleNodeKafkaCluster extends AbstractService {
     )){
       List<String> events = Files.readLines(datafile, Charset.forName("UTF-8"));
       for(String event : events){
-        producer.send(new ProducerRecord<>(topicName, event));
+        producer.send(new ProducerRecord<>(topicName, "key", event));
       }
     } catch (IOException e) {
       Throwables.propagate(e);
@@ -120,10 +128,10 @@ public class SingleNodeKafkaCluster extends AbstractService {
       // 1534736225090 -> 08/19/2018 20:37:05
       IntStream.range(0, events.size())
           .mapToObj(i -> new ProducerRecord<>(topic,
-              null,
+              0,
               // 1534736225090 -> Mon Aug 20 2018 03:37:05
               1534736225090L + 1000 * 3600 * i,
-              "key".getBytes(),
+              ("key-" + i).getBytes(),
               events.get(i)))
           .forEach(r -> producer.send(r));
     }
