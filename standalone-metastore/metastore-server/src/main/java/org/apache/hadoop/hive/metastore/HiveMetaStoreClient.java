@@ -62,7 +62,7 @@ import org.apache.hadoop.hive.metastore.conf.MetastoreConf.ConfVars;
 import org.apache.hadoop.hive.metastore.hooks.URIResolverHook;
 import org.apache.hadoop.hive.metastore.partition.spec.PartitionSpecProxy;
 import org.apache.hadoop.hive.metastore.security.HadoopThriftAuthBridge;
-import org.apache.hadoop.hive.metastore.txn.TxnUtils;
+import org.apache.hadoop.hive.metastore.txn.TxnCommonUtils;
 import org.apache.hadoop.hive.metastore.utils.JavaUtils;
 import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.utils.ObjectPair;
@@ -106,6 +106,14 @@ public class HiveMetaStoreClient implements IMetaStoreClient, AutoCloseable {
   // Test capability for tests.
   public final static ClientCapabilities TEST_VERSION = new ClientCapabilities(
       Lists.newArrayList(ClientCapability.INSERT_ONLY_TABLES, ClientCapability.TEST_CAPABILITY));
+
+  // Name of the HiveMetaStore class. It is used to initialize embedded metastore
+  private static final String HIVE_METASTORE_CLASS =
+      "org.apache.hadoop.hive.metastore.HiveMetaStore";
+
+  // Method used to create Hive Metastore client. It is called as
+  // HiveMetaStore.newRetryingHMSHandler("hive client", this.conf, true);
+  private static final String HIVE_METASTORE_CREATE_HANDLER_METHOD = "newRetryingHMSHandler";
 
   ThriftHiveMetastore.Iface client = null;
   private TTransport transport = null;
@@ -164,9 +172,11 @@ public class HiveMetaStoreClient implements IMetaStoreClient, AutoCloseable {
         throw new MetaException("Embedded metastore is not allowed here. Please configure "
             + ConfVars.THRIFT_URIS.toString() + "; it is currently set to [" + msUri + "]");
       }
+
+      client = callEmbeddedMetastore(this.conf);
+
       // instantiate the metastore server handler directly instead of connecting
       // through the network
-      client = HiveMetaStore.newRetryingHMSHandler("hive client", this.conf, true);
       isConnected = true;
       snapshotActiveConf();
       return;
@@ -222,6 +232,45 @@ public class HiveMetaStoreClient implements IMetaStoreClient, AutoCloseable {
     }
     // finally open the store
     open();
+  }
+
+  /**
+   * Instantiate the metastore server handler directly instead of connecting
+   * through the network
+   *
+   * @param conf Configuration object passed to embedded metastore
+   * @return embedded client instance
+   * @throws MetaException
+   */
+  static ThriftHiveMetastore.Iface callEmbeddedMetastore(Configuration conf) throws MetaException {
+    // Instantiate the metastore server handler directly instead of connecting
+    // through the network
+    //
+    // The code below simulates the following code
+    //
+    // client = HiveMetaStore.newRetryingHMSHandler(this.conf);
+    //
+    // using reflection API. This is done to avoid dependency of MetastoreClient on Hive Metastore.
+    // Note that newRetryingHMSHandler is static method, so we pass null as the object reference.
+    //
+    try {
+      Class<?> clazz = Class.forName(HIVE_METASTORE_CLASS);
+      //noinspection JavaReflectionMemberAccess
+      Method method = clazz.getDeclaredMethod(HIVE_METASTORE_CREATE_HANDLER_METHOD,
+          Configuration.class);
+      method.setAccessible(true);
+      return (ThriftHiveMetastore.Iface) method.invoke(null, conf);
+    } catch (InvocationTargetException e) {
+      if (e.getCause() != null) {
+        MetaStoreUtils.logAndThrowMetaException((Exception)e.getCause());
+      }
+      MetaStoreUtils.logAndThrowMetaException(e);
+    } catch (ClassNotFoundException
+        | NoSuchMethodException
+        | IllegalAccessException e) {
+      MetaStoreUtils.logAndThrowMetaException(e);
+    }
+    return null;
   }
 
   private void resolveUris() throws MetaException {
@@ -2012,11 +2061,12 @@ public class HiveMetaStoreClient implements IMetaStoreClient, AutoCloseable {
   }
 
   @Override
-  public void alter_partition(String dbName, String tblName, Partition newPart,
+  public void alter_partition(String catName, String dbName, String tblName, Partition newPart,
       EnvironmentContext environmentContext, String writeIdList)
       throws InvalidOperationException, MetaException, TException {
     AlterPartitionsRequest req = new AlterPartitionsRequest(
         dbName, tblName, Lists.newArrayList(newPart));
+    req.setCatName(catName);
     req.setEnvironmentContext(environmentContext);
     req.setValidWriteIdList(writeIdList);
     client.alter_partitions_req(req);
@@ -2676,19 +2726,19 @@ public class HiveMetaStoreClient implements IMetaStoreClient, AutoCloseable {
 
   @Override
   public ValidTxnList getValidTxns() throws TException {
-    return TxnUtils.createValidReadTxnList(client.get_open_txns(), 0);
+    return TxnCommonUtils.createValidReadTxnList(client.get_open_txns(), 0);
   }
 
   @Override
   public ValidTxnList getValidTxns(long currentTxn) throws TException {
-    return TxnUtils.createValidReadTxnList(client.get_open_txns(), currentTxn);
+    return TxnCommonUtils.createValidReadTxnList(client.get_open_txns(), currentTxn);
   }
 
   @Override
   public ValidWriteIdList getValidWriteIds(String fullTableName) throws TException {
     GetValidWriteIdsRequest rqst = new GetValidWriteIdsRequest(Collections.singletonList(fullTableName), null);
     GetValidWriteIdsResponse validWriteIds = client.get_valid_write_ids(rqst);
-    return TxnUtils.createValidReaderWriteIdList(validWriteIds.getTblValidWriteIds().get(0));
+    return TxnCommonUtils.createValidReaderWriteIdList(validWriteIds.getTblValidWriteIds().get(0));
   }
 
   @Override

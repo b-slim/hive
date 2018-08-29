@@ -18,9 +18,9 @@
 
 package org.apache.hadoop.hive.metastore;
 
+import static org.apache.hadoop.hive.metastore.HiveMetaStoreClient.callEmbeddedMetastore;
 import static org.apache.hadoop.hive.metastore.Warehouse.DEFAULT_DATABASE_NAME;
 import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.getDefaultCatalog;
-import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.prependCatalogToDbName;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -62,7 +62,7 @@ import org.apache.hadoop.hive.metastore.conf.MetastoreConf.ConfVars;
 import org.apache.hadoop.hive.metastore.hooks.URIResolverHook;
 import org.apache.hadoop.hive.metastore.partition.spec.PartitionSpecProxy;
 import org.apache.hadoop.hive.metastore.security.HadoopThriftAuthBridge;
-import org.apache.hadoop.hive.metastore.txn.TxnUtils;
+import org.apache.hadoop.hive.metastore.txn.TxnCommonUtils;
 import org.apache.hadoop.hive.metastore.utils.JavaUtils;
 import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.utils.ObjectPair;
@@ -162,9 +162,9 @@ public class HiveMetaStoreClientPreCatalog implements IMetaStoreClient, AutoClos
         throw new MetaException("Embedded metastore is not allowed here. Please configure "
             + ConfVars.THRIFT_URIS.toString() + "; it is currently set to [" + msUri + "]");
       }
-      // instantiate the metastore server handler directly instead of connecting
-      // through the network
-      client = HiveMetaStore.newRetryingHMSHandler("hive client", this.conf, true);
+
+      client = callEmbeddedMetastore(this.conf);
+
       isConnected = true;
       snapshotActiveConf();
       return;
@@ -2187,19 +2187,19 @@ public class HiveMetaStoreClientPreCatalog implements IMetaStoreClient, AutoClos
 
   @Override
   public ValidTxnList getValidTxns() throws TException {
-    return TxnUtils.createValidReadTxnList(client.get_open_txns(), 0);
+    return TxnCommonUtils.createValidReadTxnList(client.get_open_txns(), 0);
   }
 
   @Override
   public ValidTxnList getValidTxns(long currentTxn) throws TException {
-    return TxnUtils.createValidReadTxnList(client.get_open_txns(), currentTxn);
+    return TxnCommonUtils.createValidReadTxnList(client.get_open_txns(), currentTxn);
   }
 
   @Override
   public ValidWriteIdList getValidWriteIds(String fullTableName) throws TException {
     GetValidWriteIdsRequest rqst = new GetValidWriteIdsRequest(Collections.singletonList(fullTableName), null);
     GetValidWriteIdsResponse validWriteIds = client.get_valid_write_ids(rqst);
-    return TxnUtils.createValidReaderWriteIdList(validWriteIds.getTblValidWriteIds().get(0));
+    return TxnCommonUtils.createValidReaderWriteIdList(validWriteIds.getTblValidWriteIds().get(0));
   }
 
   @Override
@@ -3516,7 +3516,7 @@ public class HiveMetaStoreClientPreCatalog implements IMetaStoreClient, AutoClos
   }
 
   @Override
-  public void alter_partition(String dbName, String tblName, Partition newPart,
+  public void alter_partition(String catName, String dbName, String tblName, Partition newPart,
       EnvironmentContext environmentContext, String writeIdList)
       throws InvalidOperationException, MetaException, TException {
     throw new UnsupportedOperationException();

@@ -152,6 +152,7 @@ import org.apache.hadoop.hive.metastore.security.MetastoreDelegationTokenManager
 import org.apache.hadoop.hive.metastore.security.TUGIContainingTransport;
 import org.apache.hadoop.hive.metastore.txn.TxnStore;
 import org.apache.hadoop.hive.metastore.txn.TxnUtils;
+import org.apache.hadoop.hive.metastore.utils.MetaStoreServerUtils;
 import org.apache.hadoop.security.SecurityUtil;
 import org.apache.hadoop.hive.metastore.utils.CommonCliOptions;
 import org.apache.hadoop.hive.metastore.utils.FileUtils;
@@ -521,7 +522,7 @@ public class HiveMetaStore extends ThriftHiveMetastore {
 
     @Override
     public void init() throws MetaException {
-      initListeners = MetaStoreUtils.getMetaStoreListeners(
+      initListeners = MetaStoreServerUtils.getMetaStoreListeners(
           MetaStoreInitListener.class, conf, MetastoreConf.getVar(conf, ConfVars.INIT_HOOKS));
       for (MetaStoreInitListener singleInitListener: initListeners) {
           MetaStoreInitContext context = new MetaStoreInitContext();
@@ -553,20 +554,20 @@ public class HiveMetaStore extends ThriftHiveMetastore {
 
       }
 
-      preListeners = MetaStoreUtils.getMetaStoreListeners(MetaStorePreEventListener.class,
+      preListeners = MetaStoreServerUtils.getMetaStoreListeners(MetaStorePreEventListener.class,
           conf, MetastoreConf.getVar(conf, ConfVars.PRE_EVENT_LISTENERS));
       preListeners.add(0, new TransactionalValidationListener(conf));
-      listeners = MetaStoreUtils.getMetaStoreListeners(MetaStoreEventListener.class, conf,
+      listeners = MetaStoreServerUtils.getMetaStoreListeners(MetaStoreEventListener.class, conf,
           MetastoreConf.getVar(conf, ConfVars.EVENT_LISTENERS));
       listeners.add(new SessionPropertiesListener(conf));
       listeners.add(new AcidEventListener(conf));
-      transactionalListeners = MetaStoreUtils.getMetaStoreListeners(TransactionalMetaStoreEventListener.class,
+      transactionalListeners = MetaStoreServerUtils.getMetaStoreListeners(TransactionalMetaStoreEventListener.class,
           conf, MetastoreConf.getVar(conf, ConfVars.TRANSACTIONAL_EVENT_LISTENERS));
       if (Metrics.getRegistry() != null) {
         listeners.add(new HMSMetricsListener(conf));
       }
 
-      endFunctionListeners = MetaStoreUtils.getMetaStoreListeners(
+      endFunctionListeners = MetaStoreServerUtils.getMetaStoreListeners(
           MetaStoreEndFunctionListener.class, conf, MetastoreConf.getVar(conf, ConfVars.END_FUNCTION_LISTENERS));
 
       String partitionValidationRegex =
@@ -1572,9 +1573,9 @@ public class HiveMetaStore extends ThriftHiveMetastore {
               drop_table(MetaStoreUtils.prependCatalogToDbName(table.getCatName(), table.getDbName(), conf),
                   table.getTableName(), false);
             }
-
-            startIndex = endIndex;
           }
+
+          startIndex = endIndex;
         }
 
         if (ms.dropDatabase(catName, name)) {
@@ -1794,23 +1795,23 @@ public class HiveMetaStore extends ThriftHiveMetastore {
         throw new InvalidObjectException(tbl.getTableName()
             + " is not a valid object name");
       }
-      String validate = MetaStoreUtils.validateTblColumns(tbl.getSd().getCols());
+      String validate = MetaStoreServerUtils.validateTblColumns(tbl.getSd().getCols());
       if (validate != null) {
         throw new InvalidObjectException("Invalid column " + validate);
       }
       if (tbl.getPartitionKeys() != null) {
-        validate = MetaStoreUtils.validateTblColumns(tbl.getPartitionKeys());
+        validate = MetaStoreServerUtils.validateTblColumns(tbl.getPartitionKeys());
         if (validate != null) {
           throw new InvalidObjectException("Invalid partition column " + validate);
         }
       }
       SkewedInfo skew = tbl.getSd().getSkewedInfo();
       if (skew != null) {
-        validate = MetaStoreUtils.validateSkewedColNames(skew.getSkewedColNames());
+        validate = MetaStoreServerUtils.validateSkewedColNames(skew.getSkewedColNames());
         if (validate != null) {
           throw new InvalidObjectException("Invalid skew column " + validate);
         }
-        validate = MetaStoreUtils.validateSkewedColNamesSubsetCol(
+        validate = MetaStoreServerUtils.validateSkewedColNamesSubsetCol(
             skew.getSkewedColNames(), tbl.getSd().getCols());
         if (validate != null) {
           throw new InvalidObjectException("Invalid skew column " + validate);
@@ -1862,7 +1863,7 @@ public class HiveMetaStore extends ThriftHiveMetastore {
         }
         if (MetastoreConf.getBoolVar(conf, ConfVars.STATS_AUTO_GATHER) &&
             !MetaStoreUtils.isView(tbl)) {
-          MetaStoreUtils.updateTableStatsSlow(db, tbl, wh, madeDir, false, envContext);
+          MetaStoreServerUtils.updateTableStatsSlow(db, tbl, wh, madeDir, false, envContext);
         }
 
         // set create time
@@ -3127,7 +3128,7 @@ public class HiveMetaStore extends ThriftHiveMetastore {
         part.setTableName(tableName);
         part.setValues(part_vals);
 
-        MetaStoreUtils.validatePartitionNameCharacters(part_vals, partitionValidationPattern);
+        MetaStoreServerUtils.validatePartitionNameCharacters(part_vals, partitionValidationPattern);
 
         tbl = ms.getTable(part.getCatName(), part.getDbName(), part.getTableName(), null);
         if (tbl == null) {
@@ -3173,9 +3174,8 @@ public class HiveMetaStore extends ThriftHiveMetastore {
         part.setCreateTime((int) time);
         part.putToParameters(hive_metastoreConstants.DDL_TIME, Long.toString(time));
 
-        if (MetastoreConf.getBoolVar(conf, ConfVars.STATS_AUTO_GATHER) &&
-            !MetaStoreUtils.isView(tbl)) {
-          MetaStoreUtils.updatePartitionStatsFast(part, tbl, wh, madeDir, false, envContext, true);
+        if (canUpdateStats(tbl)) {
+          MetaStoreServerUtils.updatePartitionStatsFast(part, tbl, wh, madeDir, false, envContext, true);
         }
 
         if (ms.addPartition(part)) {
@@ -3734,7 +3734,7 @@ public class HiveMetaStore extends ThriftHiveMetastore {
     private boolean startAddPartition(
         RawStore ms, Partition part, List<FieldSchema> partitionKeys, boolean ifNotExists)
         throws TException {
-      MetaStoreUtils.validatePartitionNameCharacters(part.getValues(),
+      MetaStoreServerUtils.validatePartitionNameCharacters(part.getValues(),
           partitionValidationPattern);
       boolean doesExist = ms.doesPartitionExist(part.getCatName(),
           part.getDbName(), part.getTableName(), partitionKeys, part.getValues());
@@ -3790,6 +3790,27 @@ public class HiveMetaStore extends ThriftHiveMetastore {
       return result;
     }
 
+    /**
+     * Verify if update stats while altering partition(s)
+     * For the following three cases HMS will not update partition stats
+     * 1) Table property 'DO_NOT_UPDATE_STATS' = True
+     * 2) HMS configuration property 'STATS_AUTO_GATHER' = False
+     * 3) Is View
+     */
+    private boolean canUpdateStats(Table tbl) {
+        Map<String,String> tblParams = tbl.getParameters();
+        boolean updateStatsTbl = true;
+        if ((tblParams != null) && tblParams.containsKey(StatsSetupConst.DO_NOT_UPDATE_STATS)) {
+            updateStatsTbl = !Boolean.valueOf(tblParams.get(StatsSetupConst.DO_NOT_UPDATE_STATS));
+        }
+        if (!MetastoreConf.getBoolVar(conf, ConfVars.STATS_AUTO_GATHER) ||
+            MetaStoreUtils.isView(tbl) ||
+            !updateStatsTbl) {
+          return false;
+        }
+        return true;
+    }
+
     private void initializeAddedPartition(
         final Table tbl, final Partition part, boolean madeDir) throws MetaException {
       initializeAddedPartition(tbl, new PartitionSpecProxy.SimplePartitionWrapperIterator(part), madeDir);
@@ -3797,9 +3818,8 @@ public class HiveMetaStore extends ThriftHiveMetastore {
 
     private void initializeAddedPartition(
         final Table tbl, final PartitionSpecProxy.PartitionIterator part, boolean madeDir) throws MetaException {
-      if (MetastoreConf.getBoolVar(conf, ConfVars.STATS_AUTO_GATHER) &&
-          !MetaStoreUtils.isView(tbl)) {
-        MetaStoreUtils.updatePartitionStatsFast(part, tbl, wh, madeDir, false, null, true);
+      if (canUpdateStats(tbl)) {
+        MetaStoreServerUtils.updatePartitionStatsFast(part, tbl, wh, madeDir, false, null, true);
       }
 
       // set create time
@@ -4883,7 +4903,7 @@ public class HiveMetaStore extends ThriftHiveMetastore {
       try {
         firePreEvent(new PreAlterPartitionEvent(db_name, tbl_name, part_vals, new_part, this));
         if (part_vals != null && !part_vals.isEmpty()) {
-          MetaStoreUtils.validatePartitionNameCharacters(new_part.getValues(),
+          MetaStoreServerUtils.validatePartitionNameCharacters(new_part.getValues(),
               partitionValidationPattern);
         }
 
@@ -7011,10 +7031,10 @@ public class HiveMetaStore extends ThriftHiveMetastore {
       Exception ex = null;
       try {
         if (throw_exception) {
-          MetaStoreUtils.validatePartitionNameCharacters(part_vals, partitionValidationPattern);
+          MetaStoreServerUtils.validatePartitionNameCharacters(part_vals, partitionValidationPattern);
           ret = true;
         } else {
-          ret = MetaStoreUtils.partitionNameHasValidCharacters(part_vals,
+          ret = MetaStoreServerUtils.partitionNameHasValidCharacters(part_vals,
               partitionValidationPattern);
         }
       } catch (MetaException e) {
@@ -7436,7 +7456,7 @@ public class HiveMetaStore extends ThriftHiveMetastore {
 
     @Override
     public WriteNotificationLogResponse add_write_notification_log(WriteNotificationLogRequest rqst)
-            throws MetaException, NoSuchObjectException {
+            throws TException {
       Table tableObj = getTblObject(rqst.getDb(), rqst.getTable());
       Partition ptnObj = getPartitionObj(rqst.getDb(), rqst.getTable(), rqst.getPartitionVals(), tableObj);
       addTxnWriteNotificationLog(tableObj, ptnObj, rqst);
@@ -7610,7 +7630,7 @@ public class HiveMetaStore extends ThriftHiveMetastore {
         for (ColumnStatistics csNew : csNews) {
           String partName = csNew.getStatsDesc().getPartName();
           if (newStatsMap.containsKey(partName)) {
-            MetaStoreUtils.mergeColStats(csNew, newStatsMap.get(partName));
+            MetaStoreServerUtils.mergeColStats(csNew, newStatsMap.get(partName));
           }
           newStatsMap.put(partName, csNew);
         }
@@ -7670,10 +7690,10 @@ public class HiveMetaStore extends ThriftHiveMetastore {
             csNew.setStatsObj(Lists.newArrayList());
           } else {
             // we first use getParameters() to prune the stats
-            MetaStoreUtils.getMergableCols(csNew, part.getParameters());
+            MetaStoreServerUtils.getMergableCols(csNew, part.getParameters());
             // we merge those that can be merged
             if (csOld != null && csOld.getStatsObjSize() != 0 && !csNew.getStatsObj().isEmpty()) {
-              MetaStoreUtils.mergeColStats(csNew, csOld);
+              MetaStoreServerUtils.mergeColStats(csNew, csOld);
             }
           }
 
@@ -7726,11 +7746,11 @@ public class HiveMetaStore extends ThriftHiveMetastore {
           firstColStats.setStatsObj(Lists.newArrayList());
         } else {
           Table t = getTable(catName, dbName, tableName);
-          MetaStoreUtils.getMergableCols(firstColStats, t.getParameters());
+          MetaStoreServerUtils.getMergableCols(firstColStats, t.getParameters());
 
           // we merge those that can be merged
           if (csOld != null && csOld.getStatsObjSize() != 0 && !firstColStats.getStatsObj().isEmpty()) {
-            MetaStoreUtils.mergeColStats(firstColStats, csOld);
+            MetaStoreServerUtils.mergeColStats(firstColStats, csOld);
           }
         }
 
@@ -7835,7 +7855,7 @@ public class HiveMetaStore extends ThriftHiveMetastore {
         LOG.error("Cannot obtain username", ex);
         throw ex;
       }
-      if (!MetaStoreUtils.checkUserHasHostProxyPrivileges(user, conf, getIPAddress())) {
+      if (!MetaStoreServerUtils.checkUserHasHostProxyPrivileges(user, conf, getIPAddress())) {
         throw new MetaException("User " + user + " is not allowed to perform this API call");
       }
     }
@@ -8979,10 +8999,22 @@ public class HiveMetaStore extends ThriftHiveMetastore {
     return RetryingHMSHandler.getProxy(conf, baseHandler, local);
   }
 
-  static Iface newRetryingHMSHandler(String name, Configuration conf, boolean local)
+  /**
+   * Create retrying HMS handler for embedded metastore.
+   *
+   * <h1>IMPORTANT</h1>
+   *
+   * This method is called indirectly by HiveMetastoreClient and HiveMetaStoreClientPreCatalog
+   * using reflection. It can not be removed and its arguments can't be changed without matching
+   * change in HiveMetastoreClient and HiveMetaStoreClientPreCatalog.
+   *
+   * @param conf configuration to use
+   * @throws MetaException
+   */
+  static Iface newRetryingHMSHandler(Configuration conf)
       throws MetaException {
-    HMSHandler baseHandler = new HiveMetaStore.HMSHandler(name, conf, false);
-    return RetryingHMSHandler.getProxy(conf, baseHandler, local);
+    HMSHandler baseHandler = new HiveMetaStore.HMSHandler("hive client", conf, false);
+    return RetryingHMSHandler.getProxy(conf, baseHandler, true);
   }
 
   /**
@@ -9206,166 +9238,160 @@ public class HiveMetaStore extends ThriftHiveMetastore {
   public static void startMetaStore(int port, HadoopThriftAuthBridge bridge,
       Configuration conf, Lock startLock, Condition startCondition,
       AtomicBoolean startedServing) throws Throwable {
-    try {
-      isMetaStoreRemote = true;
-      // Server will create new threads up to max as necessary. After an idle
-      // period, it will destroy threads to keep the number of threads in the
-      // pool to min.
-      long maxMessageSize = MetastoreConf.getLongVar(conf, ConfVars.SERVER_MAX_MESSAGE_SIZE);
-      int minWorkerThreads = MetastoreConf.getIntVar(conf, ConfVars.SERVER_MIN_THREADS);
-      int maxWorkerThreads = MetastoreConf.getIntVar(conf, ConfVars.SERVER_MAX_THREADS);
-      boolean tcpKeepAlive = MetastoreConf.getBoolVar(conf, ConfVars.TCP_KEEP_ALIVE);
-      boolean useFramedTransport = MetastoreConf.getBoolVar(conf, ConfVars.USE_THRIFT_FRAMED_TRANSPORT);
-      boolean useCompactProtocol = MetastoreConf.getBoolVar(conf, ConfVars.USE_THRIFT_COMPACT_PROTOCOL);
-      boolean useSSL = MetastoreConf.getBoolVar(conf, ConfVars.USE_SSL);
-      useSasl = MetastoreConf.getBoolVar(conf, ConfVars.USE_THRIFT_SASL);
+    isMetaStoreRemote = true;
+    // Server will create new threads up to max as necessary. After an idle
+    // period, it will destroy threads to keep the number of threads in the
+    // pool to min.
+    long maxMessageSize = MetastoreConf.getLongVar(conf, ConfVars.SERVER_MAX_MESSAGE_SIZE);
+    int minWorkerThreads = MetastoreConf.getIntVar(conf, ConfVars.SERVER_MIN_THREADS);
+    int maxWorkerThreads = MetastoreConf.getIntVar(conf, ConfVars.SERVER_MAX_THREADS);
+    boolean tcpKeepAlive = MetastoreConf.getBoolVar(conf, ConfVars.TCP_KEEP_ALIVE);
+    boolean useFramedTransport = MetastoreConf.getBoolVar(conf, ConfVars.USE_THRIFT_FRAMED_TRANSPORT);
+    boolean useCompactProtocol = MetastoreConf.getBoolVar(conf, ConfVars.USE_THRIFT_COMPACT_PROTOCOL);
+    boolean useSSL = MetastoreConf.getBoolVar(conf, ConfVars.USE_SSL);
+    useSasl = MetastoreConf.getBoolVar(conf, ConfVars.USE_THRIFT_SASL);
 
-      if (useSasl) {
-        // we are in secure mode. Login using keytab
-        String kerberosName = SecurityUtil
-            .getServerPrincipal(MetastoreConf.getVar(conf, ConfVars.KERBEROS_PRINCIPAL), "0.0.0.0");
-        String keyTabFile = MetastoreConf.getVar(conf, ConfVars.KERBEROS_KEYTAB_FILE);
-        UserGroupInformation.loginUserFromKeytab(kerberosName, keyTabFile);
-      }
-
-      TProcessor processor;
-      TTransportFactory transFactory;
-      final TProtocolFactory protocolFactory;
-      final TProtocolFactory inputProtoFactory;
-      if (useCompactProtocol) {
-        protocolFactory = new TCompactProtocol.Factory();
-        inputProtoFactory = new TCompactProtocol.Factory(maxMessageSize, maxMessageSize);
-      } else {
-        protocolFactory = new TBinaryProtocol.Factory();
-        inputProtoFactory = new TBinaryProtocol.Factory(true, true, maxMessageSize, maxMessageSize);
-      }
-      HMSHandler baseHandler = new HiveMetaStore.HMSHandler("new db based metaserver", conf,
-          false);
-      IHMSHandler handler = newRetryingHMSHandler(baseHandler, conf);
-
-      TServerSocket serverSocket;
-
-      if (useSasl) {
-        // we are in secure mode.
-        if (useFramedTransport) {
-          throw new HiveMetaException("Framed transport is not supported with SASL enabled.");
-        }
-        saslServer = bridge.createServer(
-            MetastoreConf.getVar(conf, ConfVars.KERBEROS_KEYTAB_FILE),
-            MetastoreConf.getVar(conf, ConfVars.KERBEROS_PRINCIPAL),
-            MetastoreConf.getVar(conf, ConfVars.CLIENT_KERBEROS_PRINCIPAL));
-        // Start delegation token manager
-        delegationTokenManager = new MetastoreDelegationTokenManager();
-        delegationTokenManager.startDelegationTokenSecretManager(conf, baseHandler, HadoopThriftAuthBridge.Server.ServerMode.METASTORE);
-        saslServer.setSecretManager(delegationTokenManager.getSecretManager());
-        transFactory = saslServer.createTransportFactory(
-                MetaStoreUtils.getMetaStoreSaslProperties(conf, useSSL));
-        processor = saslServer.wrapProcessor(
-          new ThriftHiveMetastore.Processor<>(handler));
-
-        LOG.info("Starting DB backed MetaStore Server in Secure Mode");
-      } else {
-        // we are in unsecure mode.
-        if (MetastoreConf.getBoolVar(conf, ConfVars.EXECUTE_SET_UGI)) {
-          transFactory = useFramedTransport ?
-              new ChainedTTransportFactory(new TFramedTransport.Factory(),
-                  new TUGIContainingTransport.Factory())
-              : new TUGIContainingTransport.Factory();
-
-          processor = new TUGIBasedProcessor<>(handler);
-          LOG.info("Starting DB backed MetaStore Server with SetUGI enabled");
-        } else {
-          transFactory = useFramedTransport ?
-              new TFramedTransport.Factory() : new TTransportFactory();
-          processor = new TSetIpAddressProcessor<>(handler);
-          LOG.info("Starting DB backed MetaStore Server");
-        }
-      }
-
-      if (!useSSL) {
-        serverSocket = SecurityUtils.getServerSocket(null, port);
-      } else {
-        String keyStorePath = MetastoreConf.getVar(conf, ConfVars.SSL_KEYSTORE_PATH).trim();
-        if (keyStorePath.isEmpty()) {
-          throw new IllegalArgumentException(ConfVars.SSL_KEYSTORE_PATH.toString()
-              + " Not configured for SSL connection");
-        }
-        String keyStorePassword =
-            MetastoreConf.getPassword(conf, MetastoreConf.ConfVars.SSL_KEYSTORE_PASSWORD);
-
-        // enable SSL support for HMS
-        List<String> sslVersionBlacklist = new ArrayList<>();
-        for (String sslVersion : MetastoreConf.getVar(conf, ConfVars.SSL_PROTOCOL_BLACKLIST).split(",")) {
-          sslVersionBlacklist.add(sslVersion);
-        }
-
-        serverSocket = SecurityUtils.getServerSSLSocket(null, port, keyStorePath,
-            keyStorePassword, sslVersionBlacklist);
-      }
-
-      if (tcpKeepAlive) {
-        serverSocket = new TServerSocketKeepAlive(serverSocket);
-      }
-
-      // Metrics will have already been initialized if we're using them since HMSHandler
-      // initializes them.
-      openConnections = Metrics.getOrCreateGauge(MetricsConstants.OPEN_CONNECTIONS);
-
-      TThreadPoolServer.Args args = new TThreadPoolServer.Args(serverSocket)
-          .processor(processor)
-          .transportFactory(transFactory)
-          .protocolFactory(protocolFactory)
-          .inputProtocolFactory(inputProtoFactory)
-          .minWorkerThreads(minWorkerThreads)
-          .maxWorkerThreads(maxWorkerThreads);
-
-      TServer tServer = new TThreadPoolServer(args);
-      TServerEventHandler tServerEventHandler = new TServerEventHandler() {
-        @Override
-        public void preServe() {
-        }
-
-        @Override
-        public ServerContext createContext(TProtocol tProtocol, TProtocol tProtocol1) {
-          openConnections.incrementAndGet();
-          return null;
-        }
-
-        @Override
-        public void deleteContext(ServerContext serverContext, TProtocol tProtocol, TProtocol tProtocol1) {
-          openConnections.decrementAndGet();
-          // If the IMetaStoreClient#close was called, HMSHandler#shutdown would have already
-          // cleaned up thread local RawStore. Otherwise, do it now.
-          cleanupRawStore();
-        }
-
-        @Override
-        public void processContext(ServerContext serverContext, TTransport tTransport, TTransport tTransport1) {
-        }
-      };
-
-      tServer.setServerEventHandler(tServerEventHandler);
-      HMSHandler.LOG.info("Started the new metaserver on port [" + port
-          + "]...");
-      HMSHandler.LOG.info("Options.minWorkerThreads = "
-          + minWorkerThreads);
-      HMSHandler.LOG.info("Options.maxWorkerThreads = "
-          + maxWorkerThreads);
-      HMSHandler.LOG.info("TCP keepalive = " + tcpKeepAlive);
-      HMSHandler.LOG.info("Enable SSL = " + useSSL);
-
-      boolean directSqlEnabled = MetastoreConf.getBoolVar(conf, ConfVars.TRY_DIRECT_SQL);
-      HMSHandler.LOG.info("Direct SQL optimization = {}",  directSqlEnabled);
-
-      if (startLock != null) {
-        signalOtherThreadsToStart(tServer, startLock, startCondition, startedServing);
-      }
-      tServer.serve();
-    } catch (Throwable x) {
-      x.printStackTrace();
-      HMSHandler.LOG.error(StringUtils.stringifyException(x));
-      throw x;
+    if (useSasl) {
+      // we are in secure mode. Login using keytab
+      String kerberosName = SecurityUtil
+          .getServerPrincipal(MetastoreConf.getVar(conf, ConfVars.KERBEROS_PRINCIPAL), "0.0.0.0");
+      String keyTabFile = MetastoreConf.getVar(conf, ConfVars.KERBEROS_KEYTAB_FILE);
+      UserGroupInformation.loginUserFromKeytab(kerberosName, keyTabFile);
     }
+
+    TProcessor processor;
+    TTransportFactory transFactory;
+    final TProtocolFactory protocolFactory;
+    final TProtocolFactory inputProtoFactory;
+    if (useCompactProtocol) {
+      protocolFactory = new TCompactProtocol.Factory();
+      inputProtoFactory = new TCompactProtocol.Factory(maxMessageSize, maxMessageSize);
+    } else {
+      protocolFactory = new TBinaryProtocol.Factory();
+      inputProtoFactory = new TBinaryProtocol.Factory(true, true, maxMessageSize, maxMessageSize);
+    }
+    HMSHandler baseHandler = new HiveMetaStore.HMSHandler("new db based metaserver", conf,
+        false);
+    IHMSHandler handler = newRetryingHMSHandler(baseHandler, conf);
+
+    TServerSocket serverSocket;
+
+    if (useSasl) {
+      // we are in secure mode.
+      if (useFramedTransport) {
+        throw new HiveMetaException("Framed transport is not supported with SASL enabled.");
+      }
+      saslServer = bridge.createServer(
+          MetastoreConf.getVar(conf, ConfVars.KERBEROS_KEYTAB_FILE),
+          MetastoreConf.getVar(conf, ConfVars.KERBEROS_PRINCIPAL),
+          MetastoreConf.getVar(conf, ConfVars.CLIENT_KERBEROS_PRINCIPAL));
+      // Start delegation token manager
+      delegationTokenManager = new MetastoreDelegationTokenManager();
+      delegationTokenManager.startDelegationTokenSecretManager(conf, baseHandler, HadoopThriftAuthBridge.Server.ServerMode.METASTORE);
+      saslServer.setSecretManager(delegationTokenManager.getSecretManager());
+      transFactory = saslServer.createTransportFactory(
+              MetaStoreUtils.getMetaStoreSaslProperties(conf, useSSL));
+      processor = saslServer.wrapProcessor(
+        new ThriftHiveMetastore.Processor<>(handler));
+
+      LOG.info("Starting DB backed MetaStore Server in Secure Mode");
+    } else {
+      // we are in unsecure mode.
+      if (MetastoreConf.getBoolVar(conf, ConfVars.EXECUTE_SET_UGI)) {
+        transFactory = useFramedTransport ?
+            new ChainedTTransportFactory(new TFramedTransport.Factory(),
+                new TUGIContainingTransport.Factory())
+            : new TUGIContainingTransport.Factory();
+
+        processor = new TUGIBasedProcessor<>(handler);
+        LOG.info("Starting DB backed MetaStore Server with SetUGI enabled");
+      } else {
+        transFactory = useFramedTransport ?
+            new TFramedTransport.Factory() : new TTransportFactory();
+        processor = new TSetIpAddressProcessor<>(handler);
+        LOG.info("Starting DB backed MetaStore Server");
+      }
+    }
+
+    if (!useSSL) {
+      serverSocket = SecurityUtils.getServerSocket(null, port);
+    } else {
+      String keyStorePath = MetastoreConf.getVar(conf, ConfVars.SSL_KEYSTORE_PATH).trim();
+      if (keyStorePath.isEmpty()) {
+        throw new IllegalArgumentException(ConfVars.SSL_KEYSTORE_PATH.toString()
+            + " Not configured for SSL connection");
+      }
+      String keyStorePassword =
+          MetastoreConf.getPassword(conf, MetastoreConf.ConfVars.SSL_KEYSTORE_PASSWORD);
+
+      // enable SSL support for HMS
+      List<String> sslVersionBlacklist = new ArrayList<>();
+      for (String sslVersion : MetastoreConf.getVar(conf, ConfVars.SSL_PROTOCOL_BLACKLIST).split(",")) {
+        sslVersionBlacklist.add(sslVersion);
+      }
+
+      serverSocket = SecurityUtils.getServerSSLSocket(null, port, keyStorePath,
+          keyStorePassword, sslVersionBlacklist);
+    }
+
+    if (tcpKeepAlive) {
+      serverSocket = new TServerSocketKeepAlive(serverSocket);
+    }
+
+    // Metrics will have already been initialized if we're using them since HMSHandler
+    // initializes them.
+    openConnections = Metrics.getOrCreateGauge(MetricsConstants.OPEN_CONNECTIONS);
+
+    TThreadPoolServer.Args args = new TThreadPoolServer.Args(serverSocket)
+        .processor(processor)
+        .transportFactory(transFactory)
+        .protocolFactory(protocolFactory)
+        .inputProtocolFactory(inputProtoFactory)
+        .minWorkerThreads(minWorkerThreads)
+        .maxWorkerThreads(maxWorkerThreads);
+
+    TServer tServer = new TThreadPoolServer(args);
+    TServerEventHandler tServerEventHandler = new TServerEventHandler() {
+      @Override
+      public void preServe() {
+      }
+
+      @Override
+      public ServerContext createContext(TProtocol tProtocol, TProtocol tProtocol1) {
+        openConnections.incrementAndGet();
+        return null;
+      }
+
+      @Override
+      public void deleteContext(ServerContext serverContext, TProtocol tProtocol, TProtocol tProtocol1) {
+        openConnections.decrementAndGet();
+        // If the IMetaStoreClient#close was called, HMSHandler#shutdown would have already
+        // cleaned up thread local RawStore. Otherwise, do it now.
+        cleanupRawStore();
+      }
+
+      @Override
+      public void processContext(ServerContext serverContext, TTransport tTransport, TTransport tTransport1) {
+      }
+    };
+
+    tServer.setServerEventHandler(tServerEventHandler);
+    HMSHandler.LOG.info("Started the new metaserver on port [" + port
+        + "]...");
+    HMSHandler.LOG.info("Options.minWorkerThreads = "
+        + minWorkerThreads);
+    HMSHandler.LOG.info("Options.maxWorkerThreads = "
+        + maxWorkerThreads);
+    HMSHandler.LOG.info("TCP keepalive = " + tcpKeepAlive);
+    HMSHandler.LOG.info("Enable SSL = " + useSSL);
+
+    boolean directSqlEnabled = MetastoreConf.getBoolVar(conf, ConfVars.TRY_DIRECT_SQL);
+    HMSHandler.LOG.info("Direct SQL optimization = {}",  directSqlEnabled);
+
+    if (startLock != null) {
+      signalOtherThreadsToStart(tServer, startLock, startCondition, startedServing);
+    }
+    tServer.serve();
   }
 
   private static void cleanupRawStore() {

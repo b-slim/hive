@@ -27,7 +27,6 @@ import java.util.Map;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.hive.common.type.DataTypePhysicalVariation;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveIntervalDayTime;
@@ -64,7 +63,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.SettableTimestamp
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.SettableShortObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.SettableStringObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.VoidObjectInspector;
-import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
@@ -609,12 +607,6 @@ public final class VectorExpressionWriterFactory {
     public static VectorExpressionWriter genVectorExpressionWritable(VectorExpression vecExpr)
       throws HiveException {
       TypeInfo outputTypeInfo = vecExpr.getOutputTypeInfo();
-      DataTypePhysicalVariation outputDataTypePhysicalVariation =
-          vecExpr.getOutputDataTypePhysicalVariation();
-      if (outputTypeInfo instanceof DecimalTypeInfo &&
-          outputDataTypePhysicalVariation == DataTypePhysicalVariation.DECIMAL_64) {
-        outputTypeInfo = TypeInfoFactory.longTypeInfo;
-      }
       ObjectInspector objectInspector =
           TypeInfoUtils.getStandardWritableObjectInspectorFromTypeInfo(
               outputTypeInfo);
