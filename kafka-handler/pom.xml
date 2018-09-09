@@ -38,7 +38,7 @@
   <name>Hive Kafka Storage Handler</name>
 
   <dependencies>
-    <!-- intra-project -->
+    <!-- Intra-project -->
     <dependency>
       <groupId>org.apache.hive</groupId>
       <artifactId>hive-exec</artifactId>
