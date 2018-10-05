@@ -67,7 +67,7 @@ import java.util.stream.IntStream;
   }
 
   @Parameterized.Parameters public static Iterable<Object[]> data() {
-    return Arrays.asList(new Object[][] { { KafkaOutputFormat.WriteSemantic.NONE },
+    return Arrays.asList(new Object[][] { { KafkaOutputFormat.WriteSemantic.BEST_EFFORT },
         { KafkaOutputFormat.WriteSemantic.AT_LEAST_ONCE } });
   }
 

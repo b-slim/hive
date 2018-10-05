@@ -180,10 +180,6 @@ import java.util.List;
         other.getPath());
   }
 
-  @SuppressWarnings("MethodDoesntCallSuperMethod") public KafkaInputSplit clone() {
-    return copyOf(this);
-  }
-
   public static List<KafkaInputSplit> slice(long sliceSize, final KafkaInputSplit split) {
     if (split.getEndOffset() - split.getStartOffset() > sliceSize) {
       ImmutableList.Builder<KafkaInputSplit> builder = ImmutableList.builder();

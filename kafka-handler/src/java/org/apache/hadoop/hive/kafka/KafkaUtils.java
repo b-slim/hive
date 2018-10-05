@@ -139,7 +139,7 @@ final class KafkaUtils {
     properties.setProperty(CommonClientConfigs.CLIENT_ID_CONFIG,
         taskId == null ? "random_" + UUID.randomUUID().toString() : taskId);
     switch (writeSemantic) {
-    case NONE:
+    case BEST_EFFORT:
       break;
     case AT_LEAST_ONCE:
       properties.setProperty(ProducerConfig.RETRIES_CONFIG, String.valueOf(Integer.MAX_VALUE));
@@ -206,8 +206,8 @@ final class KafkaUtils {
   }
 
   /**
-   * Check if the exception is Non-Retriable exceptions eg a show stopper.
-   * @param exception input exception object
+   * Check if the exception is Non-Retriable there a show stopper all we can do is clean and exit.
+   * @param exception input exception object.
    * @return true if the exception is fatal thus we only can abort and rethrow the cause.
    */
   static boolean exceptionIsFatal(final Throwable exception) {
@@ -229,9 +229,9 @@ final class KafkaUtils {
   }
 
   /**
-   * This methods used to compute the kafka producer transaction id. Has to be the same across task restarts,
-   * that is why we are excluding the attempt id.
-   * Assuming the taskId format is reducerId_attemptId
+   * Computes the kafka producer transaction id. The Tx id HAS to be the same across task restarts,
+   * that is why we are excluding the attempt id by removing the last string after last `_`.
+   * Assuming the taskId format is taskId_[m-r]_attemptId.
    *
    * @param hiveConf Hive Configuration.
    * @return the taskId without the attempt id.

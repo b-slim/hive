@@ -88,7 +88,7 @@ class SimpleKafkaWriter implements FileSinkOperator.RecordWriter, RecordWriter<B
     this.progressable = progressable == null ? () -> {
     } : progressable;
     this.writeSemantic =
-        atLeastOnce ? KafkaOutputFormat.WriteSemantic.AT_LEAST_ONCE : KafkaOutputFormat.WriteSemantic.NONE;
+        atLeastOnce ? KafkaOutputFormat.WriteSemantic.AT_LEAST_ONCE : KafkaOutputFormat.WriteSemantic.BEST_EFFORT;
     this.writerId = writerId == null ? UUID.randomUUID().toString() : writerId;
     this.topic = Preconditions.checkNotNull(topic, "Topic can not be null");
     Preconditions.checkState(properties.getProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG) != null,
@@ -99,7 +99,7 @@ class SimpleKafkaWriter implements FileSinkOperator.RecordWriter, RecordWriter<B
       if (exception != null) {
         lostRecords.getAndIncrement();
         switch (writeSemantic) {
-        case NONE:
+        case BEST_EFFORT:
           LOG.warn(ACTION_CARRY_ON, getWriterId(), topic, writeSemantic);
           break;
         case AT_LEAST_ONCE:

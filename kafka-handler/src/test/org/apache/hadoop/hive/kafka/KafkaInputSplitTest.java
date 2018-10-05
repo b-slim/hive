@@ -97,7 +97,7 @@ public class KafkaInputSplitTest {
     KafkaInputSplit kafkaInputSplit =
         new KafkaInputSplit("test-topic", 2, 300, 400, new Path("/tmp"));
 
-    KafkaInputSplit clone = kafkaInputSplit.clone();
+    KafkaInputSplit clone = KafkaInputSplit.copyOf(kafkaInputSplit);
     Assert.assertEquals(kafkaInputSplit, clone);
     Assert.assertNotSame(clone, kafkaInputSplit);
 

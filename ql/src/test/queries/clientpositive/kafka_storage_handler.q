@@ -264,7 +264,12 @@ values ('test2',15, 14.9996666, null ,null ,-1,1536449552285,-1,-1 );
 select * from kafka_table_insert;
 
 
-insert into table wiki_kafka_avro_table select * from wiki_kafka_avro_table;
+insert into table wiki_kafka_avro_table select
+isrobot as isrobot, channel as channel,`timestamp` as `timestamp`,  flags as flags,  isunpatrolled as isunpatrolled, page as page,
+diffurl as diffurl, added as added, comment as comment, commentlength as commentlength, isnew as isnew, isminor as isminor,
+delta as delta, isanonymous as isanonymous, `user` as `user`,  deltabucket as detlabucket, deleted as deleted, namespace as namespace,
+`__key`, `__partition`, -1 as `__offset`,`__timestamp`, -1 as `__start_offset`, -1 as `__end_offset`
+from wiki_kafka_avro_table;
 
 select cast ((`__timestamp`/1000) as timestamp) as kafka_record_ts, `__partition`, `__offset`, `timestamp`, `user`, `page`, `deleted`, `deltabucket`, `isanonymous`, `commentlength` from wiki_kafka_avro_table;
 
@@ -282,7 +287,7 @@ TBLPROPERTIES
 "kafka.serde.class"="org.apache.hadoop.hive.serde2.OpenCSVSerde");
 
 ALTER TABLE kafka_table_csv SET TBLPROPERTIES ("hive.kafka.optimistic.commit"="false", "kafka.write.semantic"="EXACTLY_ONCE");
-insert into table kafka_table_csv select * from kafka_table_insert;
+insert into table kafka_table_csv select c_name, c_int, c_float, `__key`, `__partition`, -1 as `__offset`, `__timestamp`, -1, -1 from kafka_table_insert;
 
 insert into table kafka_table_csv (c_name,c_int, c_float,`__key`, `__partition`, `__offset`, `__timestamp`, `__start_offset`, `__end_offset`)
 values ('test4',-5, -4.999,'key-2',null ,-1,1536449552291,-1,null );

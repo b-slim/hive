@@ -166,9 +166,7 @@ import java.util.stream.Collectors;
 
     if (PrimitiveObjectInspectorUtils.getLong(offset, MetadataColumn.OFFSET.getObjectInspector()) != -1) {
       LOG.error("Can not insert values into `__offset` column, has to be [-1]");
-      //@FIXME this need to be uncommented, after fixing test queries/clientpositive/kafka_storage_handler.q
-      // insert into table wiki_kafka_avro_table select * from wiki_kafka_avro_table;
-      //throw new SerDeException("Can not insert values into `__offset` column, has to be [-1]");
+      throw new SerDeException("Can not insert values into `__offset` column, has to be [-1]");
     }
 
     final byte[]
@@ -305,7 +303,7 @@ import java.util.stream.Collectors;
     K getWritable(byte [] value);
   }
 
-  public class AvroBytesConverter implements BytesConverter<AvroGenericRecordWritable> {
+  private static class AvroBytesConverter implements BytesConverter<AvroGenericRecordWritable> {
     private final Schema schema;
     private final DatumReader<GenericRecord> dataReader;
     private final GenericDatumWriter<GenericRecord> gdw = new GenericDatumWriter<>();
@@ -346,7 +344,7 @@ import java.util.stream.Collectors;
     }
   }
 
-  public class BytesWritableConverter implements BytesConverter<BytesWritable> {
+   private static class BytesWritableConverter implements BytesConverter<BytesWritable> {
     @Override public byte[] getBytes(BytesWritable writable) {
       return writable.getBytes();
     }
@@ -356,9 +354,9 @@ import java.util.stream.Collectors;
     }
   }
 
-  public class TextBytesConverter implements BytesConverter<Text> {
+  private static class TextBytesConverter implements BytesConverter<Text> {
     @Override public byte[] getBytes(Text writable) {
-      //@TODO @FIXME this issue with CTRL-CHAR ^0 added by Text at the end of string and Json serd do not like that.
+      //@TODO @FIXME this issue with CTRL-CHAR ^0 added by Text at the end of string and Json serd does not like that.
       return writable.toString().getBytes();
     }
     @Override public Text getWritable(byte[] value) {

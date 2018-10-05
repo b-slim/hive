@@ -92,11 +92,11 @@ GROUP BY gender limit 10;
 ```
 
 
-Join the Stream to the Stream it self. In cases where you want to perform some adhoc query over the last 15 minutes view.
+Join the Stream to the Stream it self. In cases where you want to perform some Ad-Hoc query over the last 15 minutes view.
 In the following example we show how you can perform classical user retention analysis over the Kafka Stream.
 ```sql
 -- Steam join over the view it self
--- The example is from adapted  https://www.periscopedata.com/blog/how-to-calculate-cohort-retention-in-sql
+-- The example is adapted from https://www.periscopedata.com/blog/how-to-calculate-cohort-retention-in-sql
 -- Assuming l15min_wiki is a view of the last 15 minutes
 select  count( distinct activity.`user`) as active_users, count(distinct future_activity.`user`) as retained_users
 from l15min_wiki as activity
@@ -126,7 +126,7 @@ left join wiki_kafka_hive as future_activity on
 | hive.kafka.poll.timeout.ms          	| Parameter indicating Kafka Consumer poll timeout period in millis.  FYI this is independent from internal Kafka consumer timeouts. 	| No        	| 5000 (5 Seconds)                        	|
 | hive.kafka.max.retries              	| Number of retries for Kafka metadata fetch operations.                                                                             	| No        	| 6                                       	|
 | hive.kafka.metadata.poll.timeout.ms 	| Number of milliseconds before consumer timeout on fetching Kafka metadata.                                                         	| No        	| 30000 (30 Seconds)                      	|
-| kafka.write.semantic                	| Writer semantic, allowed values (NONE, AT_LEAST_ONCE, EXACTLY_ONCE)                                                                	| No        	| AT_LEAST_ONCE                           	|
+| kafka.write.semantic                	| Writer semantic, allowed values (BEST_EFFORT, AT_LEAST_ONCE, EXACTLY_ONCE)                                                                	| No        	| AT_LEAST_ONCE                           	|
 | hive.kafka.optimistic.commit        	| Boolean value indicate the if the producer should commit during task or delegate the commit to HS2.                                	| No        	| true                                    	|
 
 ### Setting Extra Consumer/Producer properties.

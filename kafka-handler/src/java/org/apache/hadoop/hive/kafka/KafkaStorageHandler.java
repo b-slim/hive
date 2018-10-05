@@ -228,7 +228,7 @@ import java.util.function.Predicate;
         .get(KafkaTableProperties.WRITE_SEMANTIC_PROPERTY.getName())
         .equals(KafkaOutputFormat.WriteSemantic.EXACTLY_ONCE.name()) || Boolean.valueOf(table.getParameters()
         .get(KafkaTableProperties.HIVE_KAFKA_OPTIMISTIC_COMMIT.getName()))) {
-      //Case no open transaction to handel.
+      //Case it is not 2 phase commit no open transaction to handel.
       return;
     }
 

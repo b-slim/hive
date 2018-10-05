@@ -267,7 +267,7 @@ class KafkaScanTrimmer {
     fullScan.entrySet()
         .stream()
         .filter(entry -> predicate.test(entry.getKey()))
-        .forEach(entry -> builder.put(entry.getKey(), entry.getValue().clone()));
+        .forEach(entry -> builder.put(entry.getKey(), KafkaInputSplit.copyOf(entry.getValue())));
     return builder.build();
   }
 

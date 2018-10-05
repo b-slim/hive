@@ -947,11 +947,21 @@ POSTHOOK: Input: default@kafka_table_insert
 POSTHOOK: Output: hdfs://### HDFS PATH ###
 test1	5	4.999	key	0	0	1536449552290	0	2
 test2	15	14.999666	NULL	0	1	1536449552285	0	2
-PREHOOK: query: insert into table wiki_kafka_avro_table select * from wiki_kafka_avro_table
+PREHOOK: query: insert into table wiki_kafka_avro_table select
+isrobot as isrobot, channel as channel,`timestamp` as `timestamp`,  flags as flags,  isunpatrolled as isunpatrolled, page as page,
+diffurl as diffurl, added as added, comment as comment, commentlength as commentlength, isnew as isnew, isminor as isminor,
+delta as delta, isanonymous as isanonymous, `user` as `user`,  deltabucket as detlabucket, deleted as deleted, namespace as namespace,
+`__key`, `__partition`, -1 as `__offset`,`__timestamp`, -1 as `__start_offset`, -1 as `__end_offset`
+from wiki_kafka_avro_table
 PREHOOK: type: QUERY
 PREHOOK: Input: default@wiki_kafka_avro_table
 PREHOOK: Output: default@wiki_kafka_avro_table
-POSTHOOK: query: insert into table wiki_kafka_avro_table select * from wiki_kafka_avro_table
+POSTHOOK: query: insert into table wiki_kafka_avro_table select
+isrobot as isrobot, channel as channel,`timestamp` as `timestamp`,  flags as flags,  isunpatrolled as isunpatrolled, page as page,
+diffurl as diffurl, added as added, comment as comment, commentlength as commentlength, isnew as isnew, isminor as isminor,
+delta as delta, isanonymous as isanonymous, `user` as `user`,  deltabucket as detlabucket, deleted as deleted, namespace as namespace,
+`__key`, `__partition`, -1 as `__offset`,`__timestamp`, -1 as `__start_offset`, -1 as `__end_offset`
+from wiki_kafka_avro_table
 POSTHOOK: type: QUERY
 POSTHOOK: Input: default@wiki_kafka_avro_table
 POSTHOOK: Output: default@wiki_kafka_avro_table
@@ -1051,11 +1061,11 @@ POSTHOOK: query: ALTER TABLE kafka_table_csv SET TBLPROPERTIES ("hive.kafka.opti
 POSTHOOK: type: ALTERTABLE_PROPERTIES
 POSTHOOK: Input: default@kafka_table_csv
 POSTHOOK: Output: default@kafka_table_csv
-PREHOOK: query: insert into table kafka_table_csv select * from kafka_table_insert
+PREHOOK: query: insert into table kafka_table_csv select c_name, c_int, c_float, `__key`, `__partition`, -1 as `__offset`, `__timestamp`, -1, -1 from kafka_table_insert
 PREHOOK: type: QUERY
 PREHOOK: Input: default@kafka_table_insert
 PREHOOK: Output: default@kafka_table_csv
-POSTHOOK: query: insert into table kafka_table_csv select * from kafka_table_insert
+POSTHOOK: query: insert into table kafka_table_csv select c_name, c_int, c_float, `__key`, `__partition`, -1 as `__offset`, `__timestamp`, -1, -1 from kafka_table_insert
 POSTHOOK: type: QUERY
 POSTHOOK: Input: default@kafka_table_insert
 POSTHOOK: Output: default@kafka_table_csv
