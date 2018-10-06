@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -60,6 +61,7 @@ class KafkaRecordIterator implements Iterator<ConsumerRecord<byte[], byte[]>> {
   private final long endOffset;
   private final long startOffset;
   private final long pollTimeoutMs;
+  private final Duration pollTimeoutDurationMs;
   private final Stopwatch stopwatch = Stopwatch.createUnstarted();
   private ConsumerRecords<byte[], byte[]> records;
   /**
@@ -98,6 +100,7 @@ class KafkaRecordIterator implements Iterator<ConsumerRecord<byte[], byte[]>> {
     this.consumer = Preconditions.checkNotNull(consumer, "Consumer can not be null");
     this.topicPartition = Preconditions.checkNotNull(topicPartition, "Topic partition can not be null");
     this.pollTimeoutMs = pollTimeoutMs;
+    this.pollTimeoutDurationMs = Duration.ofMillis(pollTimeoutMs);
     Preconditions.checkState(this.pollTimeoutMs > 0, "Poll timeout has to be positive number");
     final List<TopicPartition> topicPartitionList = Collections.singletonList(topicPartition);
     // assign topic partition to consumer
@@ -180,7 +183,7 @@ class KafkaRecordIterator implements Iterator<ConsumerRecord<byte[], byte[]>> {
     if (LOG.isTraceEnabled()) {
       stopwatch.reset().start();
     }
-    records = consumer.poll(pollTimeoutMs);
+    records = consumer.poll(pollTimeoutDurationMs);
     if (LOG.isTraceEnabled()) {
       stopwatch.stop();
       LOG.trace("Pulled [{}] records in [{}] ms", records.count(), stopwatch.elapsed(TimeUnit.MILLISECONDS));
@@ -220,6 +223,7 @@ class KafkaRecordIterator implements Iterator<ConsumerRecord<byte[], byte[]>> {
 
   static final class PollTimeoutException extends RetriableException {
     private static final long serialVersionUID = 1L;
+
     PollTimeoutException(String message) {
       super(message);
     }

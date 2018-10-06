@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -176,7 +177,7 @@ import java.util.stream.IntStream;
     consumer.seekToBeginning(assignment);
     long numRecords = 0;
     while (numRecords < RECORD_NUMBER) {
-      ConsumerRecords<byte[], byte[]> records = consumer.poll(1000);
+      ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(1000));
 
       Assert.assertFalse(records.records(new TopicPartition(topic, 0))
           .stream()

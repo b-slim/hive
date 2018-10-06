@@ -195,7 +195,7 @@ class HiveKafkaProducer<K, V> implements Producer<K, V> {
   }
 
   @SuppressWarnings("unchecked") private static Enum<?> getEnum(String enumFullName) {
-    String[] x = enumFullName.split("\\.(?=[^\\.]+$)");
+    @SuppressWarnings("RegExpRedundantEscape") String[] x = enumFullName.split("\\.(?=[^\\.]+$)");
     if (x.length == 2) {
       String enumClassName = x[0];
       String enumName = x[1];

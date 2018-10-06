@@ -42,6 +42,7 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -225,7 +226,7 @@ public class TransactionalKafkaWriterTest {
     long numRecords = 0;
     boolean emptyPoll = false;
     while (numRecords < RECORD_NUMBER && !emptyPoll) {
-      ConsumerRecords<byte[], byte[]> records = consumer.poll(1000);
+      ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(1000));
 
       Assert.assertFalse(records.records(new TopicPartition(TOPIC, 0))
           .stream()

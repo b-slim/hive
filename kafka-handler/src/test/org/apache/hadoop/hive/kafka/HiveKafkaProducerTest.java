@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.Charset;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -130,7 +131,7 @@ import java.util.stream.IntStream;
     long numRecords = 0;
     @SuppressWarnings("unchecked") final List<ConsumerRecord<byte[], byte[]>> actualRecords =  new ArrayList();
     while (numRecords < RECORD_NUMBER) {
-      ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(1000);
+      ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(Duration.ofMillis(1000));
       actualRecords.addAll(consumerRecords.records(new TopicPartition(TOPIC, 0)));
       numRecords += consumerRecords.count();
     }

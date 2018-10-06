@@ -18,16 +18,12 @@
 
 package org.apache.hadoop.hive.kafka;
 
-import kafka.admin.AdminUtils;
 import kafka.admin.RackAwareMode;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServer;
-import kafka.utils.MockTime;
 import kafka.utils.TestUtils;
-import kafka.utils.ZKStringSerializer$;
-import kafka.utils.ZkUtils;
+import kafka.zk.AdminZkClient;
 import kafka.zk.EmbeddedZookeeper;
-import org.I0Itec.zkclient.ZkClient;
 import org.apache.commons.io.FileUtils;
 import org.apache.kafka.common.utils.Time;
 import org.junit.rules.ExternalResource;
@@ -46,11 +42,10 @@ import java.util.Properties;
 class KafkaBrokerResource extends ExternalResource {
   private static final Logger LOG = LoggerFactory.getLogger(KafkaBrokerResource.class);
   private static final String TOPIC = "TEST-CREATE_TOPIC";
-  public static final String BROKER_IP_PORT = "127.0.0.1:9092";
+  static final String BROKER_IP_PORT = "127.0.0.1:9092";
   private EmbeddedZookeeper zkServer;
-  private ZkClient zkClient;
-  private ZkUtils zkUtils;
   private KafkaServer kafkaServer;
+  private AdminZkClient adminZkClient;
   private Path tmpLogDir;
 
   /**
@@ -64,8 +59,6 @@ class KafkaBrokerResource extends ExternalResource {
     zkServer = new EmbeddedZookeeper();
     tmpLogDir = Files.createTempDirectory("kafka-log-dir-").toAbsolutePath();
     String zkConnect = "127.0.0.1:" + zkServer.port();
-    zkClient = new ZkClient(zkConnect, 3000, 3000, ZKStringSerializer$.MODULE$);
-    zkUtils = ZkUtils.apply(zkClient, false);
     LOG.info("init kafka broker");
     Properties brokerProps = new Properties();
     brokerProps.setProperty("zookeeper.connect", zkConnect);
@@ -76,11 +69,12 @@ class KafkaBrokerResource extends ExternalResource {
     brokerProps.setProperty("transaction.state.log.replication.factor", "1");
     brokerProps.setProperty("transaction.state.log.min.isr", "1");
     KafkaConfig config = new KafkaConfig(brokerProps);
-    Time mock = new MockTime();
-    kafkaServer = TestUtils.createServer(config, mock);
+    kafkaServer = TestUtils.createServer(config, Time.SYSTEM);
     kafkaServer.startup();
+    kafkaServer.zkClient();
+    adminZkClient = new AdminZkClient( kafkaServer.zkClient());
     LOG.info("Creating kafka TOPIC [{}]", TOPIC);
-    AdminUtils.createTopic(zkUtils, TOPIC, 1, 1, new Properties(), RackAwareMode.Disabled$.MODULE$);
+    adminZkClient.createTopic(TOPIC, 1, 1, new Properties(), RackAwareMode.Disabled$.MODULE$);
   }
 
   /**
@@ -95,15 +89,12 @@ class KafkaBrokerResource extends ExternalResource {
     }
     if (kafkaServer != null) {
       kafkaServer.shutdown();
-      kafkaServer.zkUtils().close();
       kafkaServer.awaitShutdown();
     }
     zkServer.shutdown();
-    zkClient.close();
-    zkUtils.close();
   }
 
-  public void deleteTopic(String topic) {
-    AdminUtils.deleteTopic(zkUtils, topic);
+  void deleteTopic(@SuppressWarnings("SameParameterValue") String topic) {
+    adminZkClient.deleteTopic(topic);
   }
 }
