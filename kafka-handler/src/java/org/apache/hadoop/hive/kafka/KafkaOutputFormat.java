@@ -40,7 +40,7 @@ import java.util.Properties;
  * Kafka Hive Output Format class used to write Hive Rows to a Kafka Queue.
  */
 public class KafkaOutputFormat implements HiveOutputFormat<NullWritable, KafkaWritable> {
-  private static final Logger logger = LoggerFactory.getLogger(KafkaOutputFormat.class);
+  private static final Logger LOG = LoggerFactory.getLogger(KafkaOutputFormat.class);
 
   @Override public FileSinkOperator.RecordWriter getHiveRecordWriter(JobConf jc,
       Path finalOutPath,
@@ -50,7 +50,8 @@ public class KafkaOutputFormat implements HiveOutputFormat<NullWritable, KafkaWr
       Progressable progress) {
     final String topic = jc.get(KafkaTableProperties.HIVE_KAFKA_TOPIC.getName());
     final Boolean optimisticCommit = jc.getBoolean(KafkaTableProperties.HIVE_KAFKA_OPTIMISTIC_COMMIT.getName(), true);
-    final WriteSemantic writeSemantic =
+    final WriteSemantic
+        writeSemantic =
         WriteSemantic.valueOf(jc.get(KafkaTableProperties.WRITE_SEMANTIC_PROPERTY.getName()));
     final Properties producerProperties = KafkaUtils.producerProperties(jc);
     final FileSinkOperator.RecordWriter recordWriter;
@@ -66,7 +67,7 @@ public class KafkaOutputFormat implements HiveOutputFormat<NullWritable, KafkaWr
       try {
         fs = finalOutPath.getFileSystem(jc);
       } catch (IOException e) {
-        logger.error("Can not construct file system instance", e);
+        LOG.error("Can not construct file system instance", e);
         throw new RuntimeException(e);
       }
       final String queryId = Preconditions.checkNotNull(jc.get(HiveConf.ConfVars.HIVEQUERYID.varname, null));

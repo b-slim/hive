@@ -57,6 +57,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
@@ -235,9 +236,13 @@ import java.util.function.Predicate;
     final Path queryWorkingDir = getQueryWorkingDir(table);
     final Map<String, Pair<Long, Short>> transactionsMap;
     final int maxTries = Integer.valueOf(table.getParameters().get(KafkaTableProperties.MAX_RETRIES.getName()));
-    // We have 4 Stages ahead of us 1 Fetch Tx state from HDFS, 2 build Producers, 3 Commit Transactions, 4 Clean workingDirectory
+    // We have 4 Stages ahead of us:
+    // 1 Fetch Transactions state from HDFS.
+    // 2 Build/inti all the Kafka producers and perform a pre commit call to check if we can go ahead with commit.
+    // 3 Commit Transactions one by one.
+    // 4 Clean workingDirectory.
 
-    //First stage fetch the metadata
+    //First stage fetch the Transactions states
     final RetryUtils.Task<Map<String, Pair<Long, Short>>>
         fetchTransactionStates =
         new RetryUtils.Task<Map<String, Pair<Long, Short>>>() {
@@ -254,7 +259,7 @@ import java.util.function.Predicate;
       throw new MetaException(e.getMessage());
     }
 
-    //Second Stage Resume Producers
+    //Second Stage Resume Producers and Pre commit
     final Properties baseProducerPros = buildProducerProperties(table);
     final Map<String, HiveKafkaProducer> producersMap = new HashMap<>();
     final RetryUtils.Task<Void> buildProducersTask = new RetryUtils.Task<Void>() {
@@ -281,8 +286,7 @@ import java.util.function.Predicate;
       }
     };
     final Predicate<Throwable>
-        isRetrayable =
-        (error) -> !KafkaUtils.exceptionIsFatal(error) && !(error instanceof ProducerFencedException);
+        isRetrayable = (error) -> !KafkaUtils.exceptionIsFatal(error) && !(error instanceof ProducerFencedException);
     try {
       RetryUtils.retry(buildProducersTask, isRetrayable, cleanUpTheMap, maxTries, "Error while Builing Producers");
     } catch (Exception e) {
@@ -292,7 +296,7 @@ import java.util.function.Predicate;
     }
 
     //Third Stage Commit Transactions
-    final HashSet<String> committedTx = new HashSet<>();
+    final Set<String> committedTx = new HashSet<>();
     final RetryUtils.Task<Void> commitTask = new RetryUtils.Task() {
       @Override public Object perform() throws Exception {
         producersMap.forEach((key, producer) -> {
@@ -348,7 +352,7 @@ import java.util.function.Predicate;
   @Override public void preCreateTable(Table table) throws MetaException {
     if (!table.getTableType().equals(TableType.EXTERNAL_TABLE.toString())) {
       throw new MetaException(KAFKA_STORAGE_HANDLER + " supports only " + TableType.EXTERNAL_TABLE);
-    };
+    }
     Arrays.stream(KafkaTableProperties.values())
         .filter(KafkaTableProperties::isMandatory)
         .forEach(key -> Preconditions.checkNotNull(table.getParameters().get(key.getName()),

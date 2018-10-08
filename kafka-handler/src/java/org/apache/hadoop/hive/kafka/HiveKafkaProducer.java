@@ -7,7 +7,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -46,8 +46,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Kafka Producer with public methods that allow extracting the producer state then resuming transaction in another process.
- * Class is mostly taken from Apache Flink Project org.apache.flink.streaming.connectors.kafka.internal.FlinkKafkaProducer.
+ * Kafka Producer with public methods to extract the producer state then resuming transaction in another process.
+ * Class is mostly taken from Apache Flink Project:
+ * org.apache.flink.streaming.connectors.kafka.internal.FlinkKafkaProducer
+ *
  * @param <K> key serializer class.
  * @param <V> value serializer class.
  */
@@ -171,8 +173,8 @@ class HiveKafkaProducer<K, V> implements Producer<K, V> {
   /**
    * Besides committing {@link org.apache.kafka.clients.producer.KafkaProducer#commitTransaction} is also adding new
    * partitions to the transaction. flushNewPartitions method is moving this logic to pre-commit/flush, to make
-   * resumeTransaction simpler. Otherwise resumeTransaction would require to restore state of the not yet added/"in-flight"
-   * partitions.
+   * resumeTransaction simpler.
+   * Otherwise resumeTransaction would require to restore state of the not yet added/"in-flight" partitions.
    */
   private void flushNewPartitions() {
     LOG.info("Flushing new partitions");
@@ -187,8 +189,8 @@ class HiveKafkaProducer<K, V> implements Producer<K, V> {
     Object txnRequestHandler = invoke(transactionManager, "addPartitionsToTransactionHandler");
     invoke(transactionManager,
         "enqueueRequest",
-        new Class[] { txnRequestHandler.getClass().getSuperclass() },
-        new Object[] { txnRequestHandler });
+        new Class[] {txnRequestHandler.getClass().getSuperclass()},
+        new Object[] {txnRequestHandler});
     return (TransactionalRequestResult) getValue(txnRequestHandler,
         txnRequestHandler.getClass().getSuperclass(),
         "result");

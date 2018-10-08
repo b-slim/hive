@@ -73,7 +73,7 @@ final class KafkaUtils {
   /**
    * Set of Kafka properties that the user can not set via DDLs.
    */
-  static final HashSet<String>
+  static final Set<String>
       FORBIDDEN_PROPERTIES =
       new HashSet<>(ImmutableList.of(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
           ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
@@ -110,9 +110,7 @@ final class KafkaUtils {
 
   private static Map<String, String> extractExtraProperties(final Configuration configuration, String prefix) {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    final Map<String, String>
-        kafkaProperties =
-        configuration.getValByRegex("^" + prefix + "\\..*");
+    final Map<String, String> kafkaProperties = configuration.getValByRegex("^" + prefix + "\\..*");
     for (Map.Entry<String, String> entry : kafkaProperties.entrySet()) {
       String key = entry.getKey().substring(prefix.length() + 1);
       if (FORBIDDEN_PROPERTIES.contains(key)) {
@@ -124,8 +122,8 @@ final class KafkaUtils {
   }
 
   static Properties producerProperties(Configuration configuration) {
-    final KafkaOutputFormat.WriteSemantic writeSemantic =
-        KafkaOutputFormat.WriteSemantic.valueOf(configuration.get(KafkaTableProperties.WRITE_SEMANTIC_PROPERTY.getName()));
+    final String writeSemanticValue = configuration.get(KafkaTableProperties.WRITE_SEMANTIC_PROPERTY.getName());
+    final KafkaOutputFormat.WriteSemantic writeSemantic = KafkaOutputFormat.WriteSemantic.valueOf(writeSemanticValue);
     final Properties properties = new Properties();
     String brokerEndPoint = configuration.get(KafkaTableProperties.HIVE_KAFKA_BOOTSTRAP_SERVERS.getName());
     if (brokerEndPoint == null || brokerEndPoint.isEmpty()) {
@@ -164,20 +162,24 @@ final class KafkaUtils {
     Set<String> jars = new HashSet<>();
     FileSystem localFs = FileSystem.getLocal(conf);
     jars.addAll(conf.getStringCollection("tmpjars"));
-    jars.addAll(Arrays.stream(classes).filter(Objects::nonNull).map(clazz -> {
-      String path = Utilities.jarFinderGetJar(clazz);
-      if (path == null) {
-        throw new RuntimeException("Could not find jar for class " + clazz + " in order to ship it to the cluster.");
-      }
-      try {
-        if (!localFs.exists(new Path(path))) {
-          throw new RuntimeException("Could not validate jar file " + path + " for class " + clazz);
-        }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-      return path;
-    }).collect(Collectors.toList()));
+    jars.addAll(Arrays.stream(classes)
+        .filter(Objects::nonNull)
+        .map(clazz -> {
+          String path = Utilities.jarFinderGetJar(clazz);
+          if (path == null) {
+            throw new RuntimeException("Could not find jar for class "
+                + clazz
+                + " in order to ship it to the cluster.");
+          }
+          try {
+            if (!localFs.exists(new Path(path))) {
+              throw new RuntimeException("Could not validate jar file " + path + " for class " + clazz);
+            }
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+          return path;
+        }).collect(Collectors.toList()));
 
     if (jars.isEmpty()) {
       return;

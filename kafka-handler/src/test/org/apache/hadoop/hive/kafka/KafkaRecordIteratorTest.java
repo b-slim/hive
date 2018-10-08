@@ -62,14 +62,14 @@ import java.util.stream.IntStream;
   private static final String TX_TOPIC = "tx_test_topic";
   private static final byte[] KEY_BYTES = "KEY".getBytes(Charset.forName("UTF-8"));
 
-  private static final KafkaBrokerResource kafkaBrokerResource = new KafkaBrokerResource();
+  private static final KafkaBrokerResource BROKER_RESOURCE = new KafkaBrokerResource();
   private static final List<ConsumerRecord<byte[], byte[]>> RECORDS = getRecords(TOPIC);
   private static final List<ConsumerRecord<byte[], byte[]>> TX_RECORDS = getRecords(TX_TOPIC);
   private static final long POLL_TIMEOUT_MS = 900L;
   private static KafkaProducer<byte[], byte[]> producer;
 
   @Parameterized.Parameters public static Iterable<Object[]> data() {
-    return Arrays.asList(new Object[][] { { TOPIC, true, RECORDS }, { TX_TOPIC, false, TX_RECORDS } });
+    return Arrays.asList(new Object[][] {{TOPIC, true, RECORDS}, {TX_TOPIC, false, TX_RECORDS}});
   }
 
   private static List<ConsumerRecord<byte[], byte[]>> getRecords(String topic) {
@@ -98,7 +98,7 @@ import java.util.stream.IntStream;
   }
 
   @BeforeClass public static void setupCluster() throws Throwable {
-    kafkaBrokerResource.before();
+    BROKER_RESOURCE.before();
     sendData(RECORDS, null);
     sendData(TX_RECORDS, UUID.randomUUID().toString());
   }
@@ -313,6 +313,6 @@ import java.util.stream.IntStream;
   }
 
   @AfterClass public static void tearDownCluster() {
-    kafkaBrokerResource.after();
+    BROKER_RESOURCE.after();
   }
 }

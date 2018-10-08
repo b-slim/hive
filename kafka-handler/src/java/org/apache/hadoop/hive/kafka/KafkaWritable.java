@@ -33,42 +33,27 @@ import java.util.Objects;
 
 /**
  * Writable implementation of Kafka ConsumerRecord.
- * Serialized in the form
+ * Serialized in the form:
  * {@code timestamp} long| {@code partition} (int) | {@code offset} (long) |
  * {@code startOffset} (long) | {@code endOffset} (long) | {@code value.size()} (int) |
  * {@code value} (byte []) | {@code recordKey.size()}| {@code recordKey (byte [])}
  */
 public class KafkaWritable implements Writable {
 
-  /**
-   * Kafka partition id
-   */
   private int partition;
-  /**
-   * Record Offset
-   */
   private long offset;
+  private long timestamp;
+  private byte[] value;
+  private byte[] recordKey;
+
   /**
-   * Fist offset given by the input split used to pull the event {@link KafkaInputSplit#getStartOffset()}
+   * Fist offset given by the input split used to pull the event {@link KafkaInputSplit#getStartOffset()}.
    */
   private long startOffset;
   /**
-   * Last Offset given by the input split used to pull the event {@link KafkaInputSplit#getEndOffset()}
+   * Last Offset given by the input split used to pull the event {@link KafkaInputSplit#getEndOffset()}.
    */
   private long endOffset;
-  /**
-   * Event timestamp provided by Kafka Record {@link ConsumerRecord#timestamp()}
-   */
-  private long timestamp;
-  /**
-   * Record value
-   */
-  private byte[] value;
-
-  /**
-   * Record key content or null
-   */
-  private byte[] recordKey;
 
   void set(ConsumerRecord<byte[], byte[]> consumerRecord, long startOffset, long endOffset) {
     this.partition = consumerRecord.partition();

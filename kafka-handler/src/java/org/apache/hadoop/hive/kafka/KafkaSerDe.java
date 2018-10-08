@@ -62,8 +62,8 @@ import java.util.stream.Collectors;
  * Generic Kafka Serde that allow user to delegate Serde to other class like Avro,
  * Json or any class that supports {@link BytesWritable}.
  */
-@SerDeSpec(schemaProps = { serdeConstants.LIST_COLUMNS,
-    serdeConstants.LIST_COLUMN_TYPES }) public class KafkaSerDe extends AbstractSerDe {
+@SerDeSpec(schemaProps = { serdeConstants.LIST_COLUMNS, serdeConstants.LIST_COLUMN_TYPES }) public class KafkaSerDe
+    extends AbstractSerDe {
   private static final Logger LOG = LoggerFactory.getLogger(KafkaSerDe.class);
 
   /**
@@ -77,8 +77,7 @@ import java.util.stream.Collectors;
   private StructObjectInspector delegateDeserializerOI;
 
   /**
-   * Delegate Object Inspector used to Serialize the row, this is computed as Serialization time using the provided
-   * Object Inspector from {@link AbstractSerDe#serialize(Object, ObjectInspector)}
+   * Delegate Object Inspector used to Serialize the row as byte array.
    */
   private StructObjectInspector delegateSerializerOI;
 
@@ -88,7 +87,6 @@ import java.util.stream.Collectors;
   private ObjectInspector objectInspector;
   private final List<String> columnNames = Lists.newArrayList();
   private BytesConverter bytesConverter;
-
 
   @Override public void initialize(@Nullable Configuration conf, Properties tbl) throws SerDeException {
     //This method is called before {@link org.apache.hadoop.hive.kafka.KafkaStorageHandler.preCreateTable}
@@ -161,7 +159,7 @@ import java.util.stream.Collectors;
     //@TODO @FIXME use column names instead of actual positions that can be hard to read and review
     Object key = data.get(data.size() - MetadataColumn.KAFKA_METADATA_COLUMN_NAMES.size());
     Object partition = data.get(data.size() - MetadataColumn.KAFKA_METADATA_COLUMN_NAMES.size() + 1);
-    Object offset =  data.get(data.size() - MetadataColumn.KAFKA_METADATA_COLUMN_NAMES.size() + 2);
+    Object offset = data.get(data.size() - MetadataColumn.KAFKA_METADATA_COLUMN_NAMES.size() + 2);
     Object timestamp = data.get(data.size() - MetadataColumn.KAFKA_METADATA_COLUMN_NAMES.size() + 3);
 
     if (PrimitiveObjectInspectorUtils.getLong(offset, MetadataColumn.OFFSET.getObjectInspector()) != -1) {
@@ -211,9 +209,10 @@ import java.util.stream.Collectors;
   }
 
   /**
-   * Returns a view of the portion of this Object inspector list between <tt>0</tt> inclusive and the specified <tt>toIndex</tt>, exclusive.
+   * Returns a view of input object inspector list between:
+   * <tt>0</tt> inclusive and the specified <tt>toIndex</tt>, exclusive.
    */
-  private static class SubStructObjectInspector extends StructObjectInspector {
+  private static final class SubStructObjectInspector extends StructObjectInspector {
 
     private final StructObjectInspector baseOI;
     private final List<? extends StructField> structFields;
@@ -299,8 +298,9 @@ import java.util.stream.Collectors;
    * @param <K> delegate writable class.
    */
   private interface BytesConverter<K extends Writable> {
-    byte [] getBytes(K writable);
-    K getWritable(byte [] value);
+    byte[] getBytes(K writable);
+
+    K getWritable(byte[] value);
   }
 
   private static class AvroBytesConverter implements BytesConverter<AvroGenericRecordWritable> {
@@ -344,7 +344,7 @@ import java.util.stream.Collectors;
     }
   }
 
-   private static class BytesWritableConverter implements BytesConverter<BytesWritable> {
+  private static class BytesWritableConverter implements BytesConverter<BytesWritable> {
     @Override public byte[] getBytes(BytesWritable writable) {
       return writable.getBytes();
     }
@@ -359,6 +359,7 @@ import java.util.stream.Collectors;
       //@TODO @FIXME this issue with CTRL-CHAR ^0 added by Text at the end of string and Json serd does not like that.
       return writable.toString().getBytes();
     }
+
     @Override public Text getWritable(byte[] value) {
       return new Text(value);
     }

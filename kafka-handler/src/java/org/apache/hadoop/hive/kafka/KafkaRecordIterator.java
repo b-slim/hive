@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * This class implements an Iterator over a single Kafka topic partition.
  *
- * <b>Notes:<b/>
+ * Notes:
  * The user of this class has to provide a functional Kafka Consumer and then has to clean it afterward.
  * The user of this class is responsible for thread safety if the provided consumer is shared across threads.
  *
@@ -76,20 +76,22 @@ class KafkaRecordIterator implements Iterator<ConsumerRecord<byte[], byte[]>> {
   private Iterator<ConsumerRecord<byte[], byte[]>> consumerRecordIterator = null;
 
   /**
-   * Iterator over Kafka records, polling from a single {@code topicPartition} an inclusive {@code requestedStartOffset},
+   * Kafka record Iterator pulling from a single {@code topicPartition} an inclusive {@code requestedStartOffset},
    * up to exclusive {@code requestedEndOffset}.
-   * Iterator will block on polling up to a designated timeout, If no record is returned by brokers after poll timeout
-   * such case will be considered as an exception.
+   *
+   * This iterator can block on polling up to a designated timeout.
+   *
+   * If no record is returned by brokers after poll timeout duration such case will be considered as an exception.
    * Although the timeout exception it is a retryable exception, therefore users of this class can retry if needed.
    *
    * @param consumer       Functional kafka consumer, user must initialize this and close it.
    * @param topicPartition Target Kafka topic partition.
    * @param requestedStartOffset    Requested start offset position, if NULL iterator will seek to beginning using:
-   *                                {@link org.apache.kafka.clients.consumer.Consumer#seekToBeginning(java.util.Collection)}.
+   *                                {@link Consumer#seekToBeginning(java.util.Collection)}.
    *
    * @param requestedEndOffset      Requested end position. If null will read up to last available offset,
    *                                such position is given by:
-   *                                {@link org.apache.kafka.clients.consumer.Consumer#seekToEnd(java.util.Collection)}.
+   *                                {@link Consumer#seekToEnd(java.util.Collection)}.
    * @param pollTimeoutMs  positive number indicating poll time out in ms.
    */
   KafkaRecordIterator(Consumer<byte[], byte[]> consumer,
@@ -153,9 +155,9 @@ class KafkaRecordIterator implements Iterator<ConsumerRecord<byte[], byte[]>> {
 
   /**
    * Check if there is more records to be consumed and pull more from the broker if current batch of record is empty.
-   * This method might block up to {@link this#pollTimeoutMs}, waiting for record pulling from Kafka Brokers by the Consumer
+   * This method might block up to {@link this#pollTimeoutMs} to pull records from Kafka Broker.
    *
-   * @throws PollTimeoutException if the kafka consumer poll returns zero records and consumer position did not reach the target offset.
+   * @throws PollTimeoutException if poll returns 0 record and consumer position did not reach requested endOffset.
    * Such an exception is a retryable exception, and it can be a transient exception that if retried may succeed.
    *
    * @return true if has more records to be consumed.
@@ -177,7 +179,7 @@ class KafkaRecordIterator implements Iterator<ConsumerRecord<byte[], byte[]>> {
   /**
    * Poll more records from the Kafka Broker.
    *
-   * @throws PollTimeoutException if no records returned after a poll lap and the consumer position did not reach target end offset yet.
+   * @throws PollTimeoutException if poll returns 0 record  and consumer's position < requested endOffset.
    */
   private void pollRecords() {
     if (LOG.isTraceEnabled()) {

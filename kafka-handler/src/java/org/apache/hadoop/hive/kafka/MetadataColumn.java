@@ -106,7 +106,7 @@ enum MetadataColumn {
       NAMES_MAP =
       Arrays.stream(MetadataColumn.values()).collect(Collectors.toMap(MetadataColumn::getName, Function.identity()));
   /**
-   * Column name to MetadataColumn instance
+   * Column name to MetadataColumn instance.
    * @param name column name.
    * @return instance of {@link MetadataColumn} or null if column name is absent
    */

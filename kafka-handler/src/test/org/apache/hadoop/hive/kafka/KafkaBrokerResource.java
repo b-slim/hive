@@ -37,7 +37,7 @@ import java.nio.file.Path;
 import java.util.Properties;
 
 /**
- * Test Helper Class to start and stop a kafka broker
+ * Test Helper Class to start and stop a kafka broker.
  */
 class KafkaBrokerResource extends ExternalResource {
   private static final Logger LOG = LoggerFactory.getLogger(KafkaBrokerResource.class);
@@ -63,7 +63,7 @@ class KafkaBrokerResource extends ExternalResource {
     Properties brokerProps = new Properties();
     brokerProps.setProperty("zookeeper.connect", zkConnect);
     brokerProps.setProperty("broker.id", "0");
-    brokerProps.setProperty("log.dir",tmpLogDir.toString());
+    brokerProps.setProperty("log.dir", tmpLogDir.toString());
     brokerProps.setProperty("listeners", "PLAINTEXT://" + BROKER_IP_PORT);
     brokerProps.setProperty("offsets.topic.replication.factor", "1");
     brokerProps.setProperty("transaction.state.log.replication.factor", "1");
@@ -72,7 +72,7 @@ class KafkaBrokerResource extends ExternalResource {
     kafkaServer = TestUtils.createServer(config, Time.SYSTEM);
     kafkaServer.startup();
     kafkaServer.zkClient();
-    adminZkClient = new AdminZkClient( kafkaServer.zkClient());
+    adminZkClient = new AdminZkClient(kafkaServer.zkClient());
     LOG.info("Creating kafka TOPIC [{}]", TOPIC);
     adminZkClient.createTopic(TOPIC, 1, 1, new Properties(), RackAwareMode.Disabled$.MODULE$);
   }

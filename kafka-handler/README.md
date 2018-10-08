@@ -52,20 +52,19 @@ Count the number of records with Kafka record timestamp within the last 10 minut
 
 ```sql
 SELECT count(*) from kafka_table 
-where `__timestamp` >  1000 * to_unix_timestamp(CURRENT_TIMESTAMP - interval '10' MINUTES) ; 
-
+where `__timestamp` >  1000 * to_unix_timestamp(CURRENT_TIMESTAMP - interval '10' MINUTES);
 ```
-The storage handler allow filter push-down read optimization, 
+The storage handler allow filter push-down read optimization,
 for instance the query above will only read the records with timestamp satisfying the filter predicate. 
 Please note that such time based seek is only viable if the Kafka broker allow time based lookup (Kafka 0.11 or later versions)
 
 In addition to **time based seek**, the storage handler reader is able to seek to a particular partition offset using the SQL WHERE clause.
 Currently only support OR/AND with (<, <=, >=, >)
-  
+
 ```sql
-SELECT count(*)  from kafka_table 
-where (`__offset` < 10 and `__offset`>3 and `__partition` = 0) 
-or (`__partition` = 0 and `__offset` < 105 and `__offset` > 99) 
+SELECT count(*)  from kafka_table
+where (`__offset` < 10 and `__offset`>3 and `__partition` = 0)
+or (`__partition` = 0 and `__offset` < 105 and `__offset` > 99)
 or (`__offset` = 109);
 ```
 
@@ -73,17 +72,16 @@ User can define a view to take of the last 15 minutes and mask what ever column 
 
 ```sql
 CREATE VIEW last_15_minutes_of_kafka_table as select  `timestamp`, `user`, delta, added from kafka_table 
-where `__timestamp` >  1000 * to_unix_timestamp(CURRENT_TIMESTAMP - interval '15' MINUTES) ; 
+where `__timestamp` >  1000 * to_unix_timestamp(CURRENT_TIMESTAMP - interval '15' MINUTES);
 ```
 
 Join the Kafka Stream to Hive table. For instance assume you want to join the last 15 minutes of stream to dimension table like the following.
 ```sql
 CREATE TABLE user_table (`user` string, `first_name` string , age int, gender string, comments string) STORED as ORC ;
-
 ```
 
-Join the view of the last 15 minutes to `user_table`, group by user gender column and compute aggregates 
-over metrics from fact table and dimension table. 
+Join the view of the last 15 minutes to `user_table`, group by user gender column and compute aggregates
+over metrics from fact table and dimension table.
 
 ```sql
 SELECT sum(added) as added, sum(deleted) as deleted, avg(delta) as delta, avg(age) as avg_age , gender 
@@ -102,7 +100,7 @@ select  count( distinct activity.`user`) as active_users, count(distinct future_
 from l15min_wiki as activity
 left join l15min_wiki as future_activity on
   activity.`user` = future_activity.`user`
-  and activity.`timestamp` = future_activity.`timestamp` - interval '5' minutes ; 
+  and activity.`timestamp` = future_activity.`timestamp` - interval '5' minutes ;
 
 --  Stream to stream join
 -- Assuming wiki_kafka_hive is the entire stream.

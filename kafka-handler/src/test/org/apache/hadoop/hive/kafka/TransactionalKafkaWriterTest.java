@@ -62,14 +62,17 @@ public class TransactionalKafkaWriterTest {
   private static final String TOPIC = "TOPIC_TEST";
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private static final KafkaBrokerResource kafkaServerResource = new KafkaBrokerResource();
+  private static final KafkaBrokerResource KAFKA_BROKER_RESOURCE = new KafkaBrokerResource();
 
   private static final int RECORD_NUMBER = 1000;
   private static final byte[] KEY_BYTES = "key".getBytes();
-  private static final List<KafkaWritable> RECORDS_WRITABLES = IntStream.range(0, RECORD_NUMBER).mapToObj(number -> {
-    final byte[] value = ("VALUE-" + Integer.toString(number)).getBytes(Charset.forName("UTF-8"));
-    return new KafkaWritable(0, (long) number, value, KEY_BYTES);
-  }).collect(Collectors.toList());
+  private static final List<KafkaWritable> RECORDS_WRITABLES = IntStream
+      .range(0, RECORD_NUMBER)
+      .mapToObj(number -> {
+        final byte[] value = ("VALUE-" + Integer.toString(number)).getBytes(Charset.forName("UTF-8"));
+        return new KafkaWritable(0, (long) number, value, KEY_BYTES);
+      })
+      .collect(Collectors.toList());
 
   private final Configuration configuration = new Configuration();
   private final FileSystem fs = FileSystem.getLocal(configuration);
@@ -102,11 +105,11 @@ public class TransactionalKafkaWriterTest {
   }
 
   @BeforeClass public static void setupCluster() throws Throwable {
-    kafkaServerResource.before();
+    KAFKA_BROKER_RESOURCE.before();
   }
 
   @AfterClass public static void tearDownCluster() {
-    kafkaServerResource.after();
+    KAFKA_BROKER_RESOURCE.after();
   }
 
   @Before public void setup() throws IOException {
@@ -141,7 +144,7 @@ public class TransactionalKafkaWriterTest {
   }
 
   @After public void tearAfterTest() {
-    kafkaServerResource.deleteTopic(TOPIC);
+    KAFKA_BROKER_RESOURCE.deleteTopic(TOPIC);
     consumer.close();
     consumer = null;
   }

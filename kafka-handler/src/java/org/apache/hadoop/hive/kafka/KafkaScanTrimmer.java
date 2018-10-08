@@ -192,7 +192,6 @@ class KafkaScanTrimmer {
       constantDesc = (ExprNodeConstantDesc) extracted[0];
     }
 
-
     if (columnDesc.getColumn().equals(MetadataColumn.PARTITION.getName())) {
       return buildScanFromPartitionPredicate(fullHouse,
           operator,
@@ -229,8 +228,8 @@ class KafkaScanTrimmer {
    * @return filtered kafka scan
    */
 
-  @VisibleForTesting static Map<TopicPartition, KafkaInputSplit> buildScanFromPartitionPredicate(
-      Map<TopicPartition, KafkaInputSplit> fullScan,
+  @VisibleForTesting static Map<TopicPartition, KafkaInputSplit> buildScanFromPartitionPredicate(Map<TopicPartition,
+      KafkaInputSplit> fullScan,
       PredicateLeaf.Operator operator,
       int partitionConst,
       boolean flip,
@@ -280,7 +279,8 @@ class KafkaScanTrimmer {
    *
    * @return optimized kafka scan
    */
-  @VisibleForTesting static Map<TopicPartition, KafkaInputSplit> buildScanFromOffsetPredicate(Map<TopicPartition, KafkaInputSplit> fullScan,
+  @VisibleForTesting static Map<TopicPartition, KafkaInputSplit> buildScanFromOffsetPredicate(Map<TopicPartition,
+      KafkaInputSplit> fullScan,
       PredicateLeaf.Operator operator,
       long offsetConst,
       boolean flip,
@@ -343,11 +343,7 @@ class KafkaScanTrimmer {
               existingInputSplit.getEndOffset(), existingInputSplit.getEndOffset(), existingInputSplit.getPath());
         } else {
           newInputSplit =
-              new KafkaInputSplit(tp.topic(),
-                  tp.partition(),
-                  startOffset,
-                  endOffset,
-                  existingInputSplit.getPath());
+              new KafkaInputSplit(tp.topic(), tp.partition(), startOffset, endOffset, existingInputSplit.getPath());
         }
 
       } else {

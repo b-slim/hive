@@ -28,24 +28,31 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 
 /**
- * Retry utils class mostly taken from Apache Druid Project org.apache.druid.java.util.common.RetryUtils
+ * Retry utils class mostly taken from Apache Druid Project org.apache.druid.java.util.common.RetryUtils.
  */
-public class RetryUtils
-{
-  private static final Logger log = LoggerFactory.getLogger(RetryUtils.class);
+public final class RetryUtils {
+  private static final Logger LOG = LoggerFactory.getLogger(RetryUtils.class);
   private static final long MAX_SLEEP_MILLIS = 60000;
   private static final long BASE_SLEEP_MILLIS = 1000;
 
-  public interface Task<T>
-  {
+  private RetryUtils() {
+  }
+
+  /**
+   * Task to be performed.
+   * @param <T> returned type of the task.
+   */
+  public interface Task<T> {
     /**
      * This method is tried up to maxTries times unless it succeeds.
      */
     T perform() throws Exception;
   }
 
-  @SuppressWarnings("WeakerAccess") public interface CleanupAfterFailure
-  {
+  /**
+   * Cleanup procedure after each failed attempt.
+   */
+  @SuppressWarnings("WeakerAccess") public interface CleanupAfterFailure {
     /**
      * This is called once {@link Task#perform()} fails. Retrying is stopped once this method throws an exception,
      * so errors inside this method should be ignored if you don't want to stop retrying.
@@ -63,22 +70,19 @@ public class RetryUtils
    *
    * @param f           the operation
    * @param shouldRetry predicate determining whether we should retry after a particular exception thrown by "f"
-   * @param quietTries  first quietTries attempts will log exceptions at DEBUG level rather than WARN
+   * @param quietTries  first quietTries attempts will LOG exceptions at DEBUG level rather than WARN
    * @param maxTries    maximum number of attempts
    *
    * @return result of the first successful operation
    *
    * @throws Exception if maxTries is exhausted, or shouldRetry returns false
    */
-  @SuppressWarnings("WeakerAccess") static <T> T retry(
-      final Task<T> f,
+  @SuppressWarnings("WeakerAccess") static <T> T retry(final Task<T> f,
       final Predicate<Throwable> shouldRetry,
       final int quietTries,
       final int maxTries,
       @Nullable final CleanupAfterFailure cleanupAfterFailure,
-      @Nullable final String messageOnRetry
-  ) throws Exception
-  {
+      @Nullable final String messageOnRetry) throws Exception {
     Preconditions.checkArgument(maxTries > 0, "maxTries > 0");
     Preconditions.checkArgument(quietTries >= 0, "quietTries >= 0");
     int nTry = 0;
@@ -87,8 +91,7 @@ public class RetryUtils
       try {
         nTry++;
         return f.perform();
-      }
-      catch (Throwable e) {
+      } catch (Throwable e) {
         if (cleanupAfterFailure != null) {
           cleanupAfterFailure.cleanup();
         }
@@ -102,27 +105,22 @@ public class RetryUtils
     }
   }
 
-  static <T> T retry(final Task<T> f, Predicate<Throwable> shouldRetry, final int maxTries) throws Exception
-  {
+  static <T> T retry(final Task<T> f, Predicate<Throwable> shouldRetry, final int maxTries) throws Exception {
     return retry(f, shouldRetry, 0, maxTries);
   }
 
   @SuppressWarnings({ "WeakerAccess", "SameParameterValue" }) static <T> T retry(final Task<T> f,
       final Predicate<Throwable> shouldRetry,
       final int quietTries,
-      final int maxTries) throws Exception
-  {
+      final int maxTries) throws Exception {
     return retry(f, shouldRetry, quietTries, maxTries, null, null);
   }
 
-  @SuppressWarnings("unused") public static <T> T retry(
-      final Task<T> f,
+  @SuppressWarnings("unused") public static <T> T retry(final Task<T> f,
       final Predicate<Throwable> shouldRetry,
       final CleanupAfterFailure onEachFailure,
       final int maxTries,
-      final String messageOnRetry
-  ) throws Exception
-  {
+      final String messageOnRetry) throws Exception {
     return retry(f, shouldRetry, 0, maxTries, onEachFailure, messageOnRetry);
   }
 
@@ -130,36 +128,27 @@ public class RetryUtils
       @Nullable final String messageOnRetry,
       final int nTry,
       final int maxRetries,
-      final boolean quiet) throws InterruptedException
-  {
+      final boolean quiet) throws InterruptedException {
     final long sleepMillis = nextRetrySleepMillis(nTry);
     final String fullMessage;
 
     if (messageOnRetry == null) {
       fullMessage = String.format("Retrying (%d of %d) in %,dms.", nTry, maxRetries, sleepMillis);
     } else {
-      fullMessage = String.format(
-          "%s, retrying (%d of %d) in %,dms.",
-          messageOnRetry,
-          nTry,
-          maxRetries,
-          sleepMillis
-      );
+      fullMessage = String.format("%s, retrying (%d of %d) in %,dms.", messageOnRetry, nTry, maxRetries, sleepMillis);
     }
 
     if (quiet) {
-      log.debug(fullMessage, e);
+      LOG.debug(fullMessage, e);
     } else {
-      log.warn(fullMessage, e);
+      LOG.warn(fullMessage, e);
     }
 
     Thread.sleep(sleepMillis);
   }
 
-  private static long nextRetrySleepMillis(final int nTry)
-  {
+  private static long nextRetrySleepMillis(final int nTry) {
     final double fuzzyMultiplier = Math.min(Math.max(1 + 0.2 * ThreadLocalRandom.current().nextGaussian(), 0), 2);
-    return (long) (Math.min(MAX_SLEEP_MILLIS, BASE_SLEEP_MILLIS * Math.pow(2, nTry - 1))
-        * fuzzyMultiplier);
+    return (long) (Math.min(MAX_SLEEP_MILLIS, BASE_SLEEP_MILLIS * Math.pow(2, nTry - 1)) * fuzzyMultiplier);
   }
 }

@@ -27,7 +27,6 @@ import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Writable;
@@ -61,8 +60,7 @@ import java.util.stream.Collectors;
 /**
  * Transactional Kafka Record Writer used to achieve Exactly once semantic.
  */
-class TransactionalKafkaWriter
-    implements FileSinkOperator.RecordWriter, RecordWriter<BytesWritable, KafkaWritable> {
+class TransactionalKafkaWriter implements FileSinkOperator.RecordWriter, RecordWriter<BytesWritable, KafkaWritable> {
 
   private static final Logger LOG = LoggerFactory.getLogger(TransactionalKafkaWriter.class);
   private static final String TRANSACTION_DIR = "transaction_states";
@@ -88,7 +86,8 @@ class TransactionalKafkaWriter
    * @param producerProperties kafka producer properties.
    * @param queryWorkingPath the Query working directory as, table_directory/hive_query_id.
    *                         Used to store the state of the transaction and/or log sent records and partitions.
-   *                         see {@link KafkaStorageHandler#getQueryWorkingDir(Table)} for more information.
+   *                         for more information see:
+   *                         {@link KafkaStorageHandler#getQueryWorkingDir(org.apache.hadoop.hive.metastore.api.Table)}
    * @param fileSystem file system handler.
    * @param optimisticCommit if true the commit will happen at the task level otherwise will be delegated to HS2.
    */
@@ -100,7 +99,8 @@ class TransactionalKafkaWriter
       @Nullable Boolean optimisticCommit) {
     this.fileSystem = fileSystem;
     this.topic = Preconditions.checkNotNull(topic, "NULL topic !!");
-    this.progressable = progressable == null ? () -> { } : progressable;
+    this.progressable = progressable == null ? () -> {
+    } : progressable;
     Preconditions.checkState(producerProperties.getProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG) != null,
         "set [" + ProducerConfig.BOOTSTRAP_SERVERS_CONFIG + "] property");
     producerProperties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
@@ -128,9 +128,7 @@ class TransactionalKafkaWriter
     writerIdTopicId = String.format("WriterId [%s], Kafka Topic [%s]", producer.getTransactionalId(), topic);
     producerEpoch = this.optimisticCommit ? -1 : producer.getEpoch();
     producerId = this.optimisticCommit ? -1 : producer.getProducerId();
-    LOG.info("DONE with Initialization of {}, Epoch[{}], internal ID[{}]",
-        writerIdTopicId,
-        producerEpoch, producerId);
+    LOG.info("DONE with Initialization of {}, Epoch[{}], internal ID[{}]", writerIdTopicId, producerEpoch, producerId);
     //Writer base working directory
     openTxFileName =
         this.optimisticCommit ?
@@ -285,16 +283,18 @@ class TransactionalKafkaWriter
   private boolean tryToAbortTx(Throwable e) {
     // According to https://kafka.apache.org/0110/javadoc/org/apache/kafka/clients/producer/KafkaProducer.html
     // We can't recover from these exceptions, so our only option is to close the producer and exit.
-    boolean isNotFencedOut =  !(e instanceof ProducerFencedException)
-        && !(e instanceof OutOfOrderSequenceException)
-        && !(e instanceof AuthenticationException);
+    boolean
+        isNotFencedOut =
+        !(e instanceof ProducerFencedException)
+            && !(e instanceof OutOfOrderSequenceException)
+            && !(e instanceof AuthenticationException);
     // producer.send() may throw a KafkaException which wraps a FencedException therefore check inner cause.
-    boolean causeIsNotFencedOut = !(e.getCause() != null &&  e.getCause() instanceof ProducerFencedException);
+    boolean causeIsNotFencedOut = !(e.getCause() != null && e.getCause() instanceof ProducerFencedException);
     return isNotFencedOut && causeIsNotFencedOut;
   }
 
   /**
-   * Given the query working directory defined as .../table_directory/hive_query_id/ will fetch the open transaction states.
+   * Given a query workingDirectory as table_directory/hive_query_id/ will fetch the open transaction states.
    * Table directory is {@link org.apache.hadoop.hive.metastore.api.Table#getSd()#getLocation()}.
    * Hive Query ID is inferred from the JobConf see {@link KafkaStorageHandler#getQueryId()}.
    *
@@ -307,7 +307,8 @@ class TransactionalKafkaWriter
    * {@code producerEpoch} files will pick the maximum based on {@link Short::compareTo}.
    *
    * @param fs File system handler.
-   * @param queryWorkingDir Query working Directory (see {@link KafkaStorageHandler#getQueryWorkingDir(Table)}).
+   * @param queryWorkingDir Query working Directory, see:
+   *                        {@link KafkaStorageHandler#getQueryWorkingDir(org.apache.hadoop.hive.metastore.api.Table)}.
    * @return Map of Transaction Ids to Pair of Kafka Producer internal ID (Long) and producer epoch (short)
    * @throws IOException if any of the IO operations fail.
    */
@@ -337,7 +338,7 @@ class TransactionalKafkaWriter
             maxEpoch.orElseThrow(() -> new RuntimeException("Missing sub directory epoch from directory ["
                 + path.toString()
                 + "]"));
-        Path openTxFileName = new Path( path, String.valueOf(epoch));
+        Path openTxFileName = new Path(path, String.valueOf(epoch));
         long internalId;
         try (FSDataInputStream inStream = fs.open(openTxFileName)) {
           internalId = inStream.readLong();

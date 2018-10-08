@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
-
 /**
  * Test for Utility class.
  */
@@ -62,7 +61,7 @@ public class KafkaUtilsTest {
     Configuration configuration = new Configuration();
     configuration.set("kafka.bootstrap.servers", "localhost:9090");
     configuration.set("kafka.consumer." + ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "value");
-   KafkaUtils.consumerProperties(configuration);
+    KafkaUtils.consumerProperties(configuration);
   }
 
   @Test public void testMetadataEnumLookupMapper() {
@@ -82,13 +81,13 @@ public class KafkaUtilsTest {
             new LongWritable(ts),
             new LongWritable(startOffset),
             new LongWritable(endOffset));
-    KafkaWritable KRWritable = new KafkaWritable(partition, offset, ts, value, startOffset, endOffset, key);
+    KafkaWritable kafkaWritable = new KafkaWritable(partition, offset, ts, value, startOffset, endOffset, key);
 
     List<Writable>
         actual =
         MetadataColumn.KAFKA_METADATA_COLUMN_NAMES.stream()
             .map(MetadataColumn::forName)
-            .map(KRWritable::getHiveWritable)
+            .map(kafkaWritable::getHiveWritable)
             .collect(Collectors.toList());
 
     Assert.assertEquals(expectedWritables, actual);
@@ -107,13 +106,13 @@ public class KafkaUtilsTest {
   @Test public void testGetTaskId() {
     String[]
         ids =
-        { "attempt_200707121733_0003_m_000005_0", "attempt_local_0001_m_000005_0", "task_200709221812_0001_m_000005_0",
-            "task_local_0001_r_000005_0", "task_local_0001_r_000005_2" };
+        {"attempt_200707121733_0003_m_000005_0", "attempt_local_0001_m_000005_0", "task_200709221812_0001_m_000005_0",
+            "task_local_0001_r_000005_0", "task_local_0001_r_000005_2"};
 
     String[]
         expectedIds =
-        { "attempt_200707121733_0003_m_000005", "attempt_local_0001_m_000005", "task_200709221812_0001_m_000005",
-            "task_local_0001_r_000005", "task_local_0001_r_000005" };
+        {"attempt_200707121733_0003_m_000005", "attempt_local_0001_m_000005", "task_200709221812_0001_m_000005",
+            "task_local_0001_r_000005", "task_local_0001_r_000005"};
 
     Object[] actualIds = Arrays.stream(ids).map(id -> {
       Configuration configuration = new Configuration();

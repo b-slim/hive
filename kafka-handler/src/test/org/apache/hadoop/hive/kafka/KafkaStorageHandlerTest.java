@@ -61,7 +61,8 @@ public class KafkaStorageHandlerTest {
     kafkaStorageHandler.configureOutputJobProperties(tableDesc, jobProperties);
     Assert.assertEquals(jobProperties.get(KafkaTableProperties.HIVE_KAFKA_TOPIC.getName()), TEST_TOPIC);
     Assert.assertEquals(jobProperties.get(KafkaTableProperties.HIVE_KAFKA_BOOTSTRAP_SERVERS.getName()), LOCALHOST_9291);
-    Arrays.stream(KafkaTableProperties.values()).filter(key -> !key.isMandatory())
+    Arrays.stream(KafkaTableProperties.values())
+        .filter(key -> !key.isMandatory())
         .forEach((key) -> Assert.assertEquals("Wrong match for key " + key.getName(),
             key.getDefaultValue(),
             jobProperties.get(key.getName())));
@@ -78,7 +79,8 @@ public class KafkaStorageHandlerTest {
     preCreateTable.putToParameters(KafkaTableProperties.HIVE_KAFKA_BOOTSTRAP_SERVERS.getName(), LOCALHOST_9291);
     kafkaStorageHandler.preCreateTable(preCreateTable);
     preCreateTable.getParameters().forEach(properties::setProperty);
-    properties.setProperty(KafkaTableProperties.WRITE_SEMANTIC_PROPERTY.getName(), KafkaOutputFormat.WriteSemantic.EXACTLY_ONCE.name());
+    properties.setProperty(KafkaTableProperties.WRITE_SEMANTIC_PROPERTY.getName(),
+        KafkaOutputFormat.WriteSemantic.EXACTLY_ONCE.name());
     properties.setProperty(KafkaTableProperties.SERDE_CLASS_NAME.getName(), AvroSerDe.class.getName());
     properties.setProperty(KafkaTableProperties.KAFKA_POLL_TIMEOUT.getName(), "7000");
     Mockito.when(tableDesc.getProperties()).thenReturn(properties);
@@ -113,7 +115,8 @@ public class KafkaStorageHandlerTest {
     kafkaStorageHandler.preCreateTable(preCreateTable);
     preCreateTable.getParameters().forEach(properties::setProperty);
 
-    properties.setProperty(KafkaTableProperties.WRITE_SEMANTIC_PROPERTY.getName(), KafkaOutputFormat.WriteSemantic.EXACTLY_ONCE.name());
+    properties.setProperty(KafkaTableProperties.WRITE_SEMANTIC_PROPERTY.getName(),
+        KafkaOutputFormat.WriteSemantic.EXACTLY_ONCE.name());
     properties.setProperty(KafkaTableProperties.HIVE_KAFKA_OPTIMISTIC_COMMIT.getName(), "false");
     Mockito.when(tableDesc.getProperties()).thenReturn(properties);
     Map<String, String> jobProperties = new HashMap<>();

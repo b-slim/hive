@@ -49,12 +49,15 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/**
+ * Test class for Hive Kafka Producer.
+ */
 @SuppressWarnings("unchecked") public class HiveKafkaProducerTest {
 
   private static final Logger LOG = LoggerFactory.getLogger(HiveKafkaProducerTest.class);
   private static final int RECORD_NUMBER = 17384;
   private static final byte[] KEY_BYTES = "KEY".getBytes(Charset.forName("UTF-8"));
-  private static final KafkaBrokerResource kafkaServerResource = new KafkaBrokerResource();
+  private static final KafkaBrokerResource KAFKA_BROKER_RESOURCE = new KafkaBrokerResource();
 
   private static final String TOPIC = "test-tx-producer";
   private static final List<ProducerRecord<byte[], byte[]>>
@@ -65,11 +68,11 @@ import java.util.stream.IntStream;
       }).collect(Collectors.toList());
 
   @BeforeClass public static void setupCluster() throws Throwable {
-    kafkaServerResource.before();
+    KAFKA_BROKER_RESOURCE.before();
   }
 
   @AfterClass public static void tearDownCluster() {
-    kafkaServerResource.after();
+    KAFKA_BROKER_RESOURCE.after();
   }
 
   private KafkaConsumer<byte[], byte[]> consumer;
@@ -106,7 +109,6 @@ import java.util.stream.IntStream;
     consumer = null;
   }
 
-
   @Test public void resumeTransaction() {
     producer.initTransactions();
     producer.beginTransaction();
@@ -129,7 +131,7 @@ import java.util.stream.IntStream;
     consumer.assign(assignment);
     consumer.seekToBeginning(assignment);
     long numRecords = 0;
-    @SuppressWarnings("unchecked") final List<ConsumerRecord<byte[], byte[]>> actualRecords =  new ArrayList();
+    @SuppressWarnings("unchecked") final List<ConsumerRecord<byte[], byte[]>> actualRecords = new ArrayList();
     while (numRecords < RECORD_NUMBER) {
       ConsumerRecords<byte[], byte[]> consumerRecords = consumer.poll(Duration.ofMillis(1000));
       actualRecords.addAll(consumerRecords.records(new TopicPartition(TOPIC, 0)));
@@ -146,16 +148,14 @@ import java.util.stream.IntStream;
     }
   }
 
-  @Test(expected = org.apache.kafka.common.KafkaException.class)
-  public void testWrongEpochAndId() {
+  @Test(expected = org.apache.kafka.common.KafkaException.class) public void testWrongEpochAndId() {
     HiveKafkaProducer secondProducer = new HiveKafkaProducer(producerProperties);
     secondProducer.resumeTransaction(3434L, (short) 12);
     secondProducer.sendOffsetsToTransaction(ImmutableMap.of(), "__dummy_consumer_group");
     secondProducer.close();
   }
 
-  @Test(expected = org.apache.kafka.common.KafkaException.class)
-  public void testWrongEpoch() {
+  @Test(expected = org.apache.kafka.common.KafkaException.class) public void testWrongEpoch() {
     producer.initTransactions();
     producer.beginTransaction();
     long pid = producer.getProducerId();
@@ -166,8 +166,7 @@ import java.util.stream.IntStream;
     secondProducer.close();
   }
 
-  @Test(expected = org.apache.kafka.common.KafkaException.class)
-  public void testWrongPID() {
+  @Test(expected = org.apache.kafka.common.KafkaException.class) public void testWrongPID() {
     producer.initTransactions();
     producer.beginTransaction();
     short epoch = producer.getEpoch();

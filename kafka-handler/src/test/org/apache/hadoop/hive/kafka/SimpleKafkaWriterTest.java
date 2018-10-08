@@ -47,15 +47,18 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/**
+ * Test class for Kafka simple writer.
+ */
 @RunWith(Parameterized.class) public class SimpleKafkaWriterTest {
   private static final Logger LOG = LoggerFactory.getLogger(SimpleKafkaWriterTest.class);
 
   private static final int RECORD_NUMBER = 17384;
   private static final byte[] KEY_BYTES = "KEY".getBytes(Charset.forName("UTF-8"));
-  private static final KafkaBrokerResource kafkaServerResource = new KafkaBrokerResource();
-  private static final List<KafkaWritable>
-      RECORDS_WRITABLES =
-      IntStream.range(0, RECORD_NUMBER).mapToObj(number -> {
+  private static final KafkaBrokerResource KAFKA_BROKER_RESOURCE = new KafkaBrokerResource();
+  private static final List<KafkaWritable> RECORDS_WRITABLES = IntStream
+      .range(0, RECORD_NUMBER)
+      .mapToObj(number -> {
         final byte[] value = ("VALUE-" + Integer.toString(number)).getBytes(Charset.forName("UTF-8"));
         return new KafkaWritable(0, (long) number, value, KEY_BYTES);
       }).collect(Collectors.toList());
@@ -68,16 +71,16 @@ import java.util.stream.IntStream;
   }
 
   @Parameterized.Parameters public static Iterable<Object[]> data() {
-    return Arrays.asList(new Object[][] { { KafkaOutputFormat.WriteSemantic.BEST_EFFORT },
-        { KafkaOutputFormat.WriteSemantic.AT_LEAST_ONCE } });
+    return Arrays.asList(new Object[][] {{KafkaOutputFormat.WriteSemantic.BEST_EFFORT},
+        {KafkaOutputFormat.WriteSemantic.AT_LEAST_ONCE}});
   }
 
   @BeforeClass public static void setupCluster() throws Throwable {
-    kafkaServerResource.before();
+    KAFKA_BROKER_RESOURCE.before();
   }
 
   @AfterClass public static void tearDownCluster() {
-    kafkaServerResource.after();
+    KAFKA_BROKER_RESOURCE.after();
   }
 
   @Before public void setUp() {
@@ -105,8 +108,6 @@ import java.util.stream.IntStream;
     this.consumer = new KafkaConsumer<>(consumerProps);
   }
 
-
-
   @Test(expected = IllegalStateException.class) public void testMissingBrokerString() {
     new SimpleKafkaWriter("t",
         null,
@@ -119,7 +120,12 @@ import java.util.stream.IntStream;
     Properties properties = new Properties();
     properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9290");
     SimpleKafkaWriter
-        writer = new SimpleKafkaWriter("t", null, writeSemantic.equals(KafkaOutputFormat.WriteSemantic.AT_LEAST_ONCE), properties, null);
+        writer =
+        new SimpleKafkaWriter("t",
+            null,
+            writeSemantic.equals(KafkaOutputFormat.WriteSemantic.AT_LEAST_ONCE),
+            properties,
+            null);
     Assert.assertNotNull(writer.getWriterId());
   }
 
@@ -131,9 +137,7 @@ import java.util.stream.IntStream;
     properties.setProperty("metadata.max.age.ms", "100");
     properties.setProperty("max.block.ms", "1000");
     KafkaWritable record = new KafkaWritable(-1, -1, "value".getBytes(), null);
-    SimpleKafkaWriter
-        writer =
-        new SimpleKafkaWriter("t", null, false, properties, null);
+    SimpleKafkaWriter writer = new SimpleKafkaWriter("t", null, false, properties, null);
     writer.write(record);
     writer.close(false);
     Assert.assertEquals("Expect sent records not matching", 1, writer.getSentRecords());
@@ -190,5 +194,4 @@ import java.util.stream.IntStream;
     }
     Assert.assertEquals(RECORD_NUMBER, numRecords);
   }
-
 }

@@ -83,10 +83,9 @@ import java.util.stream.Collectors;
   private static final ThreadLocal<DateTimeFormatter>
       TS_PARSER =
       ThreadLocal.withInitial(KafkaJsonSerDe::createAutoParser);
-  private static final Function<TypeInfo, ObjectInspector>
-      typeInfoToObjectInspector =
-      typeInfo -> PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector(TypeInfoFactory.getPrimitiveTypeInfo(
-          typeInfo.getTypeName()));
+  private static final Function<TypeInfo, ObjectInspector> TYPEINFO_TO_OI =
+      typeInfo -> PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector(
+          TypeInfoFactory.getPrimitiveTypeInfo(typeInfo.getTypeName()));
   private List<String> columnNames;
   private List<TypeInfo> columnTypes;
   private ObjectInspector inspector;
@@ -118,7 +117,7 @@ import java.util.stream.Collectors;
       LOG.debug("types: {}, {} ", columnTypeProperty, columnTypes);
     }
 
-    inspectors = columnTypes.stream().map(typeInfoToObjectInspector).collect(Collectors.toList());
+    inspectors = columnTypes.stream().map(TYPEINFO_TO_OI).collect(Collectors.toList());
     inspector = ObjectInspectorFactory.getStandardStructObjectInspector(columnNames, inspectors);
   }
 
@@ -236,8 +235,8 @@ import java.util.stream.Collectors;
     DateTimeParser
         timeOrOffset =
         new DateTimeFormatterBuilder().append(null,
-            new DateTimeParser[] { new DateTimeFormatterBuilder().appendLiteral('T').toParser(),
-                new DateTimeFormatterBuilder().appendLiteral(' ').toParser() })
+            new DateTimeParser[] {new DateTimeFormatterBuilder().appendLiteral('T').toParser(),
+                new DateTimeFormatterBuilder().appendLiteral(' ').toParser()})
             .appendOptional(ISODateTimeFormat.timeElementParser().getParser())
             .appendOptional(offsetElement.getParser())
             .toParser();

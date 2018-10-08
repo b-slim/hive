@@ -49,10 +49,10 @@ import java.util.concurrent.atomic.AtomicReference;
 class SimpleKafkaWriter implements FileSinkOperator.RecordWriter, RecordWriter<BytesWritable, KafkaWritable> {
 
   private static final Logger LOG = LoggerFactory.getLogger(SimpleKafkaWriter.class);
-  private final static String
+  private static final  String
       TIMEOUT_CONFIG_HINT =
       "Try increasing producer property [`retries`] and [`retry.backoff.ms`] to avoid this error [{}].";
-  private final static String
+  private static final  String
       ABORT_MSG =
       "Writer [%s] aborting Send. Caused by [%s]. Sending to topic [%s]. Record offset [%s];";
   private static final String
