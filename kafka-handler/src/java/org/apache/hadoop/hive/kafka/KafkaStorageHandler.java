@@ -225,17 +225,21 @@ import java.util.function.Predicate;
   }
 
   @Override public void commitInsertTable(Table table, boolean overwrite) throws MetaException {
-    if (!table.getParameters()
-        .get(KafkaTableProperties.WRITE_SEMANTIC_PROPERTY.getName())
-        .equals(KafkaOutputFormat.WriteSemantic.EXACTLY_ONCE.name()) || Boolean.valueOf(table.getParameters()
-        .get(KafkaTableProperties.HIVE_KAFKA_OPTIMISTIC_COMMIT.getName()))) {
+    boolean
+        isExactlyOnce =
+        table.getParameters()
+            .get(KafkaTableProperties.WRITE_SEMANTIC_PROPERTY.getName())
+            .equals(KafkaOutputFormat.WriteSemantic.EXACTLY_ONCE.name());
+    String optimiticCommitVal = table.getParameters().get(KafkaTableProperties.HIVE_KAFKA_OPTIMISTIC_COMMIT.getName());
+    boolean isTwoPhaseCommit = !Boolean.parseBoolean(optimiticCommitVal);
+    if (!isExactlyOnce || !isTwoPhaseCommit) {
       //Case it is not 2 phase commit no open transaction to handel.
       return;
     }
 
     final Path queryWorkingDir = getQueryWorkingDir(table);
     final Map<String, Pair<Long, Short>> transactionsMap;
-    final int maxTries = Integer.valueOf(table.getParameters().get(KafkaTableProperties.MAX_RETRIES.getName()));
+    final int maxTries = Integer.parseInt(table.getParameters().get(KafkaTableProperties.MAX_RETRIES.getName()));
     // We have 4 Stages ahead of us:
     // 1 Fetch Transactions state from HDFS.
     // 2 Build/inti all the Kafka producers and perform a pre commit call to check if we can go ahead with commit.

@@ -45,6 +45,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectIn
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.UTF8;
 import org.apache.hadoop.io.Writable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +53,8 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
 import java.rmi.server.UID;
 import java.util.ArrayList;
 import java.util.List;
@@ -356,8 +359,13 @@ import java.util.stream.Collectors;
 
   private static class TextBytesConverter implements BytesConverter<Text> {
     @Override public byte[] getBytes(Text writable) {
-      //@TODO @FIXME this issue with CTRL-CHAR ^0 added by Text at the end of string and Json serd does not like that.
-      return writable.toString().getBytes();
+      //@TODO  There is no reason to decode then encode the string to bytes really
+      //@FIXME this issue with CTRL-CHAR ^0 added by Text at the end of string and Json serd does not like that.
+      try {
+        return writable.decode(writable.getBytes(), 0, writable.getLength()).getBytes(Charset.forName("UTF-8"));
+      } catch (CharacterCodingException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     @Override public Text getWritable(byte[] value) {
