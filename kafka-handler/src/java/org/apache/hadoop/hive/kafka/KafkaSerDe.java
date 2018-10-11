@@ -45,7 +45,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectIn
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorUtils;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.UTF8;
 import org.apache.hadoop.io.Writable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +63,8 @@ import java.util.stream.Collectors;
 /**
  * Generic Kafka Serde that allow user to delegate Serde to other class like Avro,
  * Json or any class that supports {@link BytesWritable}.
+ * I the user which to implement their own serde all they need is to implement a serde that extend
+ * {@link org.apache.hadoop.hive.serde2.AbstractSerDe} and accept {@link BytesWritable} as value
  */
 @SerDeSpec(schemaProps = { serdeConstants.LIST_COLUMNS, serdeConstants.LIST_COLUMN_TYPES }) public class KafkaSerDe
     extends AbstractSerDe {
@@ -153,10 +154,10 @@ import java.util.stream.Collectors;
     StructObjectInspector structObjectInspector = (StructObjectInspector) objInspector;
     List<Object> data = structObjectInspector.getStructFieldsDataAsList(obj);
     if (delegateSerializerOI == null) {
+      //@TODO check if i can cache this if it is the same.
       delegateSerializerOI =
           new SubStructObjectInspector(structObjectInspector, data.size() - MetadataColumn.values().length);
     }
-
     // We always append the metadata columns to the end of the row.
     final List<Object> row = data.subList(0, data.size() - MetadataColumn.values().length);
     //@TODO @FIXME use column names instead of actual positions that can be hard to read and review
@@ -310,6 +311,7 @@ import java.util.stream.Collectors;
     private final Schema schema;
     private final DatumReader<GenericRecord> dataReader;
     private final GenericDatumWriter<GenericRecord> gdw = new GenericDatumWriter<>();
+    private final AvroGenericRecordWritable avroGenericRecordWritable = new AvroGenericRecordWritable();
     private final UID uid = new UID();
 
     AvroBytesConverter(Schema schema) {
@@ -339,7 +341,7 @@ import java.util.stream.Collectors;
       } catch (IOException e) {
         Throwables.propagate(new SerDeException(e));
       }
-      AvroGenericRecordWritable avroGenericRecordWritable = new AvroGenericRecordWritable();
+
       avroGenericRecordWritable.setRecord(avroRecord);
       avroGenericRecordWritable.setRecordReaderID(uid);
       avroGenericRecordWritable.setFileSchema(avroRecord.getSchema());
@@ -358,6 +360,7 @@ import java.util.stream.Collectors;
   }
 
   private static class TextBytesConverter implements BytesConverter<Text> {
+    Text text = new Text();
     @Override public byte[] getBytes(Text writable) {
       //@TODO  There is no reason to decode then encode the string to bytes really
       //@FIXME this issue with CTRL-CHAR ^0 added by Text at the end of string and Json serd does not like that.
@@ -369,7 +372,8 @@ import java.util.stream.Collectors;
     }
 
     @Override public Text getWritable(byte[] value) {
-      return new Text(value);
+      text.set(value);
+      return text;
     }
   }
 

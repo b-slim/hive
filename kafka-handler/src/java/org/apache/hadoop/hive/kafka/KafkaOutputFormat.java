@@ -57,10 +57,10 @@ public class KafkaOutputFormat implements HiveOutputFormat<NullWritable, KafkaWr
     final FileSinkOperator.RecordWriter recordWriter;
     switch (writeSemantic) {
     case BEST_EFFORT:
-      recordWriter = new SimpleKafkaWriter(topic, Utilities.getTaskId(jc), false, producerProperties, progress);
+      recordWriter = new SimpleKafkaWriter(topic, Utilities.getTaskId(jc), false, producerProperties);
       break;
     case AT_LEAST_ONCE:
-      recordWriter = new SimpleKafkaWriter(topic, Utilities.getTaskId(jc), true, producerProperties, progress);
+      recordWriter = new SimpleKafkaWriter(topic, Utilities.getTaskId(jc), true, producerProperties);
       break;
     case EXACTLY_ONCE:
       FileSystem fs;
@@ -72,9 +72,7 @@ public class KafkaOutputFormat implements HiveOutputFormat<NullWritable, KafkaWr
       }
       final String queryId = Preconditions.checkNotNull(jc.get(HiveConf.ConfVars.HIVEQUERYID.varname, null));
       recordWriter =
-          new TransactionalKafkaWriter(topic,
-              progress,
-              producerProperties,
+          new TransactionalKafkaWriter(topic, producerProperties,
               new Path(Preconditions.checkNotNull(finalOutPath), queryId),
               fs,
               optimisticCommit);

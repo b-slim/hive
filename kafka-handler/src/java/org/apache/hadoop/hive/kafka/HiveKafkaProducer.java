@@ -47,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Kafka Producer with public methods to extract the producer state then resuming transaction in another process.
+ * This Producer is to be used only if you need to extract the transaction state and resume it from a different process.
  * Class is mostly taken from Apache Flink Project:
  * org.apache.flink.streaming.connectors.kafka.internal.FlinkKafkaProducer
  *

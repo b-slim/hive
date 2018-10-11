@@ -141,14 +141,19 @@ final class KafkaUtils {
       break;
     case AT_LEAST_ONCE:
       properties.setProperty(ProducerConfig.RETRIES_CONFIG, String.valueOf(Integer.MAX_VALUE));
+      //The number of acknowledgments the producer requires the leader to have received before considering a request as
+      // complete, all means from all replicas.
       properties.setProperty(ProducerConfig.ACKS_CONFIG, "all");
       break;
     case EXACTLY_ONCE:
       // Assuming that TaskId is ReducerId_attemptId. need the Reducer ID to fence out zombie kafka producers.
       String reducerId = getTaskId(configuration);
+      //The number of acknowledgments the producer requires the leader to have received before considering a request as
+      // complete, all means from all replicas.
       properties.setProperty(ProducerConfig.ACKS_CONFIG, "all");
       properties.setProperty(ProducerConfig.RETRIES_CONFIG, String.valueOf(Integer.MAX_VALUE));
       properties.setProperty(ProducerConfig.TRANSACTIONAL_ID_CONFIG, reducerId);
+      //Producer set to be IDEMPOTENT eg ensure that send() retries are idempotent.
       properties.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
       break;
     default:

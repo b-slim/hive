@@ -152,7 +152,7 @@ public class TransactionalKafkaWriterTest {
   @Test public void writeAndCommit() throws IOException, MetaException {
     TransactionalKafkaWriter
         zombieWriter =
-        new TransactionalKafkaWriter(TOPIC, null, properties, queryWorkingPath, fs, false);
+        new TransactionalKafkaWriter(TOPIC, properties, queryWorkingPath, fs, false);
     RECORDS_WRITABLES.forEach(kafkaRecordWritable -> {
       try {
         zombieWriter.write(kafkaRecordWritable);
@@ -164,7 +164,7 @@ public class TransactionalKafkaWriterTest {
 
     TransactionalKafkaWriter
         writer =
-        new TransactionalKafkaWriter(TOPIC, null, properties, queryWorkingPath, fs, false);
+        new TransactionalKafkaWriter(TOPIC, properties, queryWorkingPath, fs, false);
 
     RECORDS_WRITABLES.forEach(kafkaRecordWritable -> {
       try {
@@ -188,7 +188,7 @@ public class TransactionalKafkaWriterTest {
   @Test(expected = java.lang.AssertionError.class) public void writeAndNoCommit() throws IOException {
     TransactionalKafkaWriter
         writer =
-        new TransactionalKafkaWriter(TOPIC, null, properties, queryWorkingPath, fs, false);
+        new TransactionalKafkaWriter(TOPIC, properties, queryWorkingPath, fs, false);
     RECORDS_WRITABLES.forEach(kafkaRecordWritable -> {
       try {
         writer.write(kafkaRecordWritable);
@@ -205,12 +205,12 @@ public class TransactionalKafkaWriterTest {
   @Test(expected = IOException.class) public void writerFencedOut() throws IOException {
     TransactionalKafkaWriter
         writer =
-        new TransactionalKafkaWriter(TOPIC, null, properties, queryWorkingPath, fs, false);
+        new TransactionalKafkaWriter(TOPIC, properties, queryWorkingPath, fs, false);
 
     //noinspection unused this is actually used, the contstructor start the TX that is what we need
     TransactionalKafkaWriter
         newWriter =
-        new TransactionalKafkaWriter(TOPIC, null, properties, queryWorkingPath, fs, false);
+        new TransactionalKafkaWriter(TOPIC, properties, queryWorkingPath, fs, false);
 
     try {
       for (KafkaWritable record : RECORDS_WRITABLES) {

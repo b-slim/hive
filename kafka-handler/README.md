@@ -1,22 +1,25 @@
 #Kafka Storage Handler Module
 
-Yet another Storage Handler that allow user to Connect/Analyse/Transform Kafka topics.
-Storage Handler allow the user to create an external table that is a view over one Kafka topic.
+Storage Handler that allows user to Connect/Analyse/Transform Kafka topics.
+The workflow is as follow,  first the user will create an external table that is a view over one Kafka topic,
+then the user will be able to run any SQL query including write back to the same table or different kafka backed table.
 
-## Usage 
+## Usage
 
 ### Create Table
-Use following statement to Create table:
+Use following statement to create table:
 ```sql
 CREATE EXTERNAL TABLE kafka_table
-(`timestamp` timestamp , `page` string,  `newPage` boolean, 
+(`timestamp` timestamp , `page` string,  `newPage` boolean,
  added int, deleted bigint, delta double)
 STORED BY 'org.apache.hadoop.hive.kafka.KafkaStorageHandler'
 TBLPROPERTIES
 ("kafka.topic" = "test-topic", "kafka.bootstrap.servers"="localhost:9092");
 ```
 Table property `kafka.topic` is the Kafka Topic to connect to and `kafka.bootstrap.servers` is the Broker connection string.
-Both properties are mandatory.  
+Both properties are mandatory.
+On the write path if such a topic does not exists the topic will be created if Kafka broker admin policy allow such operation.
+
 By default the serializer and deserializer is Json `org.apache.hadoop.hive.serde2.JsonSerDe`.
 If you want to switch serializer/deserializer classes you can use alter table.
 ```sql
@@ -32,12 +35,11 @@ List of supported Serializer Deserializer:
 |org.apache.hadoop.hive.serde2.lazybinary.LazyBinarySerDe|
 |org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe|
 
-
 #### Table definition 
 In addition to the user defined payload schema Kafka Storage Handler will append additional columns allowing user to query the Kafka metadata fields:
 - `__key` Kafka record key (byte array)
 - `__partition` Kafka record partition identifier (int 32)
-- `__offsert` Kafka record offset (int 64)
+- `__offset` Kafka record offset (int 64)
 - `__timestamp` Kafka record timestamp (int 64)
 
  
@@ -116,79 +118,74 @@ left join wiki_kafka_hive as future_activity on
 
 ## Table Properties
 
-| Property                            	| Description                                                                                                                        	| Mandatory 	| Default                                 	|
-|-------------------------------------	|------------------------------------------------------------------------------------------------------------------------------------	|-----------	|-----------------------------------------	|
-| kafka.topic                         	| Kafka topic name to map the table to.                                                                                              	| Yes       	| null                                    	|
-| kafka.bootstrap.servers             	| Table property indicating Kafka broker(s) connection string.                                                                       	| Yes       	| null                                    	|
-| kafka.serde.class                   	| Serializer and Deserializer class implementation.                                                                                  	| No        	| org.apache.hadoop.hive.serde2.JsonSerDe 	|
-| hive.kafka.poll.timeout.ms          	| Parameter indicating Kafka Consumer poll timeout period in millis.  FYI this is independent from internal Kafka consumer timeouts. 	| No        	| 5000 (5 Seconds)                        	|
-| hive.kafka.max.retries              	| Number of retries for Kafka metadata fetch operations.                                                                             	| No        	| 6                                       	|
-| hive.kafka.metadata.poll.timeout.ms 	| Number of milliseconds before consumer timeout on fetching Kafka metadata.                                                         	| No        	| 30000 (30 Seconds)                      	|
-| kafka.write.semantic                	| Writer semantic, allowed values (BEST_EFFORT, AT_LEAST_ONCE, EXACTLY_ONCE)                                                                	| No        	| AT_LEAST_ONCE                           	|
-| hive.kafka.optimistic.commit        	| Boolean value indicate the if the producer should commit during task or delegate the commit to HS2.                                	| No        	| true                                    	|
+| Property                            | Description                                                                                                                        | Mandatory | Default                                 |
+|-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|-----------|-----------------------------------------|
+| kafka.topic                         | Kafka topic name to map the table to.                                                                                              | Yes       | null                                    |
+| kafka.bootstrap.servers             | Table property indicating Kafka broker(s) connection string.                                                                       | Yes       | null                                    |
+| kafka.serde.class                   | Serializer and Deserializer class implementation.                                                                                  | No        | org.apache.hadoop.hive.serde2.JsonSerDe |
+| hive.kafka.poll.timeout.ms          | Parameter indicating Kafka Consumer poll timeout period in millis.  FYI this is independent from internal Kafka consumer timeouts. | No        | 5000 (5 Seconds)                        |
+| hive.kafka.max.retries              | Number of retries for Kafka metadata fetch operations.                                                                             | No        | 6                                       |
+| hive.kafka.metadata.poll.timeout.ms | Number of milliseconds before consumer timeout on fetching Kafka metadata.                                                         | No        | 30000 (30 Seconds)                      |
+| kafka.write.semantic                | Writer semantic, allowed values (BEST_EFFORT, AT_LEAST_ONCE, EXACTLY_ONCE)                                                         | No        | AT_LEAST_ONCE                           |
+| hive.kafka.optimistic.commit        | Boolean value indicate the if the producer should commit during task or delegate the commit to HS2.                                | No        | true                                    |
 
 ### Setting Extra Consumer/Producer properties.
-User can inject custom Kafka consumer/producer properties via the Table properties. 
-To do so user can add any key/value pair of Kafka config to the Hive table property 
+User can inject custom Kafka consumer/producer properties via the Table properties.
+To do so user can add any key/value pair of Kafka config to the Hive table property
 by prefixing the key with `kafka.consumer` for consumer configs and `kafka.producer` for producer configs.
 For instance the following alter table query adds the table property `"kafka.consumer.max.poll.records" = "5000"` 
 and will inject `max.poll.records=5000` to the Kafka Consumer.
 ```sql
 ALTER TABLE kafka_table SET TBLPROPERTIES ("kafka.consumer.max.poll.records"="5000");
-```   
+```
 
 #Kafka to Hive ETL PIPE LINE
 
-load form Kafka every Record exactly once 
+load form Kafka every Record exactly once
 Goal is to read data and commit both data and its offsets in a single Transaction 
 
 First create the offset table.
 ```sql
 Drop table kafka_table_offsets;
 create table kafka_table_offsets(partition_id int, max_offset bigint, insert_time timestamp);
-
 ``` 
 
 Initialize the table
 ```sql
 insert overwrite table kafka_table_offsets select `__partition`, min(`__offset`) - 1, CURRENT_TIMESTAMP 
 from wiki_kafka_hive group by `__partition`, CURRENT_TIMESTAMP ;
-
 ``` 
 Create the end target table on the Hive warehouse.
 ```sql
 Drop table orc_kafka_table;
 Create table orc_kafka_table (partition_id int, koffset bigint, ktimestamp bigint,
- `timestamp` timestamp , `page` string, `user` string, `diffurl` string, 
+ `timestamp` timestamp , `page` string, `user` string, `diffurl` string,
  `isrobot` boolean, added int, deleted int, delta bigint
 ) stored as ORC;
-
 ```
 This an example tp insert up to offset = 2 only
 
 ```sql
 From wiki_kafka_hive ktable JOIN kafka_table_offsets offset_table
-on (ktable.`__partition` = offset_table.partition_id 
+on (ktable.`__partition` = offset_table.partition_id
 and ktable.`__offset` > offset_table.max_offset and  ktable.`__offset` < 3 )
 insert into table orc_kafka_table select `__partition`, `__offset`, `__timestamp`,
 `timestamp`, `page`, `user`, `diffurl`, `isrobot`, added , deleted , delta
 Insert overwrite table kafka_table_offsets select
 `__partition`, max(`__offset`), CURRENT_TIMESTAMP group by `__partition`, CURRENT_TIMESTAMP;
-
 ```
 
-Double check the insert 
+Double check the insert
 ```sql
 select max(`koffset`) from orc_kafka_table limit 10;
 select count(*) as c  from orc_kafka_table group by partition_id, koffset having c > 1;
-
 ```
 
 Repeat this periodically to insert all data.
 
 ```sql
 From wiki_kafka_hive ktable JOIN kafka_table_offsets offset_table
-on (ktable.`__partition` = offset_table.partition_id 
+on (ktable.`__partition` = offset_table.partition_id
 and ktable.`__offset` > offset_table.max_offset )
 insert into table orc_kafka_table select `__partition`, `__offset`, `__timestamp`,
 `timestamp`, `page`, `user`, `diffurl`, `isrobot`, added , deleted , delta
@@ -198,10 +195,11 @@ Insert overwrite table kafka_table_offsets select
 
 #ETL from Hive to Kafka
 
-INSERT INTO
+##INSERT INTO
+First create the table in have that will be the target table. Now all the inserts will go to the topic mapped by this Table.
+
 ```sql
-DROP TABLE moving_avg_wiki_kafka_hive;
-CREATE EXTERNAL TABLE moving_avg_wiki_kafka_hive 
+CREATE EXTERNAL TABLE moving_avg_wiki_kafka_hive
 (`channel` string, `namespace` string,`page` string, `timestamp` timestamp , avg_delta double )
 STORED BY 'org.apache.hadoop.hive.kafka.KafkaStorageHandler'
 TBLPROPERTIES
@@ -209,13 +207,11 @@ TBLPROPERTIES
 "kafka.bootstrap.servers"="cn105-10.l42scl.hortonworks.com:9092",
 -- STORE AS AVRO IN KAFKA
 "kafka.serde.class"="org.apache.hadoop.hive.serde2.avro.AvroSerDe");
-
 ```
 
-Insert data into the table;
+Then insert data into the table. Keep in mind that Kafka is an append only, thus you can not use insert overwrite. 
 ```sql
 insert into table moving_avg_wiki_kafka_hive select `channel`, `namespace`, `page`, `timestamp`, 
 avg(delta) over (order by `timestamp` asc rows between  60 preceding and current row) as avg_delta, 
 null as `__key`, null as `__partition`, -1, -1,-1, -1 from l15min_wiki;
 ```
-

@@ -299,7 +299,9 @@ import java.util.function.Predicate;
       throw new MetaException(e.getMessage());
     }
 
-    //Third Stage Commit Transactions
+    //Third Stage Commit Transactions, this part is the actual critical section.
+    //The commit might be retried on error, but keep in mind in some cases, like open transaction can expire
+    //after timeout duration of 15 mins it is not possible to go further.
     final Set<String> committedTx = new HashSet<>();
     final RetryUtils.Task<Void> commitTask = new RetryUtils.Task() {
       @Override public Object perform() throws Exception {
@@ -320,7 +322,7 @@ import java.util.function.Predicate;
     } catch (Exception e) {
       // at this point we are in a funky state if one commit happend!! close and log it
       producersMap.forEach((key, producer) -> producer.close(0, TimeUnit.MILLISECONDS));
-      LOG.error("Commit transaction faild due to [{}]", e.getMessage());
+      LOG.error("Commit transaction failed", e);
       if (committedTx.size() > 0) {
         LOG.error("Partial Data Got Commited Some actions need to be Done");
         committedTx.stream().forEach(key -> LOG.error("Transaction [{}] is an orphen commit", key));

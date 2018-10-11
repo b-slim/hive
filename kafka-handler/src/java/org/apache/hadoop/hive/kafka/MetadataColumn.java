@@ -64,10 +64,12 @@ enum MetadataColumn {
   /**
    * Start offset given by the input split, this will reflect the actual start of TP or start given by split pruner.
    */
+  // @TODO To be removed next PR it is here to make review easy
   START_OFFSET("__start_offset", TypeInfoFactory.longTypeInfo),
   /**
    * End offset given by input split at run time.
    */
+  // @TODO To be removed next PR it is here to make review easy
   END_OFFSET("__end_offset", TypeInfoFactory.longTypeInfo);
 
   /**

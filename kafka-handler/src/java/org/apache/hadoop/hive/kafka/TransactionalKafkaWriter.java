@@ -32,7 +32,6 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordWriter;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.util.Progressable;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.KafkaException;
@@ -67,7 +66,6 @@ class TransactionalKafkaWriter implements FileSinkOperator.RecordWriter, RecordW
 
   private final String topic;
   private final HiveKafkaProducer<byte[], byte[]> producer;
-  private final Progressable progressable;
   private final Callback callback;
   private final AtomicReference<Exception> sendExceptionRef = new AtomicReference<>();
   private final Path openTxFileName;
@@ -80,27 +78,22 @@ class TransactionalKafkaWriter implements FileSinkOperator.RecordWriter, RecordW
   private long sentRecords = 0L;
 
   /**
-   *
-   * @param topic Kafka topic.
-   * @param progressable progress tracking object.
+   *  @param topic Kafka topic.
    * @param producerProperties kafka producer properties.
    * @param queryWorkingPath the Query working directory as, table_directory/hive_query_id.
-   *                         Used to store the state of the transaction and/or log sent records and partitions.
-   *                         for more information see:
-   *                         {@link KafkaStorageHandler#getQueryWorkingDir(org.apache.hadoop.hive.metastore.api.Table)}
+ *                         Used to store the state of the transaction and/or log sent records and partitions.
+ *                         for more information see:
+ *                         {@link KafkaStorageHandler#getQueryWorkingDir(org.apache.hadoop.hive.metastore.api.Table)}
    * @param fileSystem file system handler.
    * @param optimisticCommit if true the commit will happen at the task level otherwise will be delegated to HS2.
    */
-  TransactionalKafkaWriter(String topic,
-      @Nullable Progressable progressable,
-      Properties producerProperties,
+  TransactionalKafkaWriter(String topic, Properties producerProperties,
       Path queryWorkingPath,
       FileSystem fileSystem,
       @Nullable Boolean optimisticCommit) {
     this.fileSystem = fileSystem;
     this.topic = Preconditions.checkNotNull(topic, "NULL topic !!");
-    this.progressable = progressable == null ? () -> {
-    } : progressable;
+
     Preconditions.checkState(producerProperties.getProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG) != null,
         "set [" + ProducerConfig.BOOTSTRAP_SERVERS_CONFIG + "] property");
     producerProperties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
@@ -122,8 +115,17 @@ class TransactionalKafkaWriter implements FileSinkOperator.RecordWriter, RecordW
     try {
       producer.initTransactions();
       producer.beginTransaction();
-    } catch (Exception e) {
-      sendExceptionRef.compareAndSet(null, e);
+    } catch (Exception exception) {
+      logHints(exception);
+      if (tryToAbortTx(exception)) {
+        LOG.error("Aborting Transaction [{}] cause by ERROR [{}]",
+            producer.getTransactionalId(),
+            exception.getMessage());
+        producer.abortTransaction();
+      }
+      LOG.error("Closing writer [{}] caused by ERROR [{}]", producer.getTransactionalId(), exception.getMessage());
+      producer.close(0, TimeUnit.MILLISECONDS);
+      throw exception;
     }
     writerIdTopicId = String.format("WriterId [%s], Kafka Topic [%s]", producer.getTransactionalId(), topic);
     producerEpoch = this.optimisticCommit ? -1 : producer.getEpoch();
@@ -139,7 +141,6 @@ class TransactionalKafkaWriter implements FileSinkOperator.RecordWriter, RecordW
 
   @Override public void write(Writable w) throws IOException {
     checkExceptions();
-    progressable.progress();
     try {
       sentRecords++;
       producer.send(KafkaUtils.toProducerRecord(topic, (KafkaWritable) w), callback);

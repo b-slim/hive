@@ -25,7 +25,6 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordWriter;
 import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.util.Progressable;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -67,26 +66,17 @@ class SimpleKafkaWriter implements FileSinkOperator.RecordWriter, RecordWriter<B
   private final KafkaOutputFormat.WriteSemantic writeSemantic;
   private final KafkaProducer<byte[], byte[]> producer;
   private final Callback callback;
-  private final Progressable progressable;
   private final AtomicReference<Exception> sendExceptionRef = new AtomicReference<>();
   private final AtomicLong lostRecords = new AtomicLong(0L);
   private long sentRecords = 0L;
 
   /**
-   *
    * @param topic Kafka Topic.
    * @param writerId Writer Id use for logging.
    * @param atLeastOnce true if the desired delivery semantic is at least once.
    * @param properties Kafka Producer properties.
-   * @param progressable Progress bar.
    */
-  SimpleKafkaWriter(String topic,
-      @Nullable String writerId,
-      boolean atLeastOnce,
-      Properties properties,
-      @Nullable Progressable progressable) {
-    this.progressable = progressable == null ? () -> {
-    } : progressable;
+  SimpleKafkaWriter(String topic, @Nullable String writerId, boolean atLeastOnce, Properties properties) {
     this.writeSemantic =
         atLeastOnce ? KafkaOutputFormat.WriteSemantic.AT_LEAST_ONCE : KafkaOutputFormat.WriteSemantic.BEST_EFFORT;
     this.writerId = writerId == null ? UUID.randomUUID().toString() : writerId;
@@ -107,8 +97,7 @@ class SimpleKafkaWriter implements FileSinkOperator.RecordWriter, RecordWriter<B
           sendExceptionRef.compareAndSet(null, exception);
           break;
         default:
-          sendExceptionRef.compareAndSet(null,
-              new IllegalArgumentException("Unsupported delivery semantic " + writeSemantic));
+              throw new IllegalArgumentException("Unsupported delivery semantic " + writeSemantic);
         }
       }
     };
@@ -121,7 +110,6 @@ class SimpleKafkaWriter implements FileSinkOperator.RecordWriter, RecordWriter<B
     checkExceptions();
     try {
       sentRecords++;
-      progressable.progress();
       producer.send(KafkaUtils.toProducerRecord(topic, (KafkaWritable) w), callback);
     } catch (KafkaException kafkaException) {
       handleKafkaException(kafkaException);
