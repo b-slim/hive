@@ -200,3 +200,7 @@ explain select `timets` from (select cast(`__time` as timestamp ) as timets from
 select `timets_with_tz` from (select `__time` as timets_with_tz from druid_table_alltypesorc order by timets_with_tz limit 10)  as src order by `timets_with_tz`;
 
 select `timets` from (select cast(`__time` as timestamp ) as timets from druid_table_alltypesorc order by timets limit 10)  as src order by `timets`;
+
+explain select count(distinct `__time`, cint) from (select * from druid_table_alltypesorc) as src;
+
+select count(distinct `__time`, cint) from (select * from druid_table_alltypesorc) as src;
