@@ -94,6 +94,7 @@ public class HashMapWrapper extends AbstractMapJoinTableContainer implements Ser
       // We have statistics for the table. Size appropriately.
       threshold = (int)Math.ceil(keyCount / (keyCountAdj * loadFactor));
     }
+    threshold = Math.max(4096, threshold);
     LOG.info("Key count from statistics is " + keyCount + "; setting map size to " + threshold);
     return threshold;
   }
