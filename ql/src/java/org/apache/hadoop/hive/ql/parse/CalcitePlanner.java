@@ -1764,17 +1764,21 @@ public class CalcitePlanner extends SemanticAnalyzer {
 
       // Create and set MD provider
       HiveDefaultRelMetadataProvider mdProvider = new HiveDefaultRelMetadataProvider(conf);
-      RelMetadataQuery.THREAD_PROVIDERS.set(
-              JaninoRelMetadataProvider.of(mdProvider.getMetadataProvider()));
+      RelMetadataQuery.THREAD_PROVIDERS.set(JaninoRelMetadataProvider.of(mdProvider.getMetadataProvider()));
 
       //Remove subquery
-      LOG.debug("Plan before removing subquery:\n" + RelOptUtil.toString(calciteGenPlan));
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Plan before removing subquery:\n" + RelOptUtil.toString(calciteGenPlan));
+      }
       calciteGenPlan = hepPlan(calciteGenPlan, false, mdProvider.getMetadataProvider(), null,
               new HiveSubQueryRemoveRule(conf));
-      LOG.debug("Plan just after removing subquery:\n" + RelOptUtil.toString(calciteGenPlan));
-
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Plan just after removing subquery:\n" + RelOptUtil.toString(calciteGenPlan));
+      }
       calciteGenPlan = HiveRelDecorrelator.decorrelateQuery(calciteGenPlan);
-      LOG.debug("Plan after decorrelation:\n" + RelOptUtil.toString(calciteGenPlan));
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Plan after decorrelation:\n" + RelOptUtil.toString(calciteGenPlan));
+      }
 
       // 2. Apply pre-join order optimizations
       calcitePreCboPlan = applyPreJoinOrderingTransforms(calciteGenPlan,
@@ -2237,7 +2241,7 @@ public class CalcitePlanner extends SemanticAnalyzer {
           // If this is not a rebuild, we use Volcano planner as the decision
           // on whether to use MVs or not and which MVs to use should be cost-based
           optCluster.invalidateMetadataQuery();
-          RelMetadataQuery.THREAD_PROVIDERS.set(JaninoRelMetadataProvider.of(DefaultRelMetadataProvider.INSTANCE));
+          RelMetadataQuery.THREAD_PROVIDERS.set(JaninoRelMetadataProvider.DEFAULT);
 
           // Add materializations to planner
           for (RelOptMaterialization materialization : materializations) {
@@ -2295,7 +2299,7 @@ public class CalcitePlanner extends SemanticAnalyzer {
       if (mvRebuildMode == MaterializationRebuildMode.AGGREGATE_REBUILD) {
         // Make a cost-based decision factoring the configuration property
         optCluster.invalidateMetadataQuery();
-        RelMetadataQuery.THREAD_PROVIDERS.set(JaninoRelMetadataProvider.of(DefaultRelMetadataProvider.INSTANCE));
+        RelMetadataQuery.THREAD_PROVIDERS.set(JaninoRelMetadataProvider.DEFAULT);
         RelMetadataQuery mq = RelMetadataQuery.instance();
         RelOptCost costOriginalPlan = mq.getCumulativeCost(calcitePreMVRewritingPlan);
         final double factorSelectivity = (double) HiveConf.getFloatVar(
@@ -5157,6 +5161,15 @@ public class CalcitePlanner extends SemanticAnalyzer {
 
       return tabAliases;
     }
+  }
+
+  /**
+   * This method can be called at startup time to pre-register all the
+   * additional Hive classes (compared to Calcite core classes) that may
+   * be visited during the planning phase.
+   */
+  public static void initializeMetadataProviderClass() {
+    HiveDefaultRelMetadataProvider.initializeMetadataProviderClass();
   }
 
   private enum TableType {
