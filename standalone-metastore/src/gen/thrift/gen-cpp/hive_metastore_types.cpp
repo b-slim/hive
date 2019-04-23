@@ -22960,6 +22960,16 @@ void NotificationEventsCountRequest::__set_catName(const std::string& val) {
 __isset.catName = true;
 }
 
+void NotificationEventsCountRequest::__set_toEventId(const int64_t val) {
+  this->toEventId = val;
+__isset.toEventId = true;
+}
+
+void NotificationEventsCountRequest::__set_limit(const int64_t val) {
+  this->limit = val;
+__isset.limit = true;
+}
+
 uint32_t NotificationEventsCountRequest::read(::apache::thrift::protocol::TProtocol* iprot) {
 
   apache::thrift::protocol::TInputRecursionTracker tracker(*iprot);
@@ -23007,6 +23017,22 @@ uint32_t NotificationEventsCountRequest::read(::apache::thrift::protocol::TProto
           xfer += iprot->skip(ftype);
         }
         break;
+      case 4:
+        if (ftype == ::apache::thrift::protocol::T_I64) {
+          xfer += iprot->readI64(this->toEventId);
+          this->__isset.toEventId = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
+      case 5:
+        if (ftype == ::apache::thrift::protocol::T_I64) {
+          xfer += iprot->readI64(this->limit);
+          this->__isset.limit = true;
+        } else {
+          xfer += iprot->skip(ftype);
+        }
+        break;
       default:
         xfer += iprot->skip(ftype);
         break;
@@ -23041,6 +23067,16 @@ uint32_t NotificationEventsCountRequest::write(::apache::thrift::protocol::TProt
     xfer += oprot->writeString(this->catName);
     xfer += oprot->writeFieldEnd();
   }
+  if (this->__isset.toEventId) {
+    xfer += oprot->writeFieldBegin("toEventId", ::apache::thrift::protocol::T_I64, 4);
+    xfer += oprot->writeI64(this->toEventId);
+    xfer += oprot->writeFieldEnd();
+  }
+  if (this->__isset.limit) {
+    xfer += oprot->writeFieldBegin("limit", ::apache::thrift::protocol::T_I64, 5);
+    xfer += oprot->writeI64(this->limit);
+    xfer += oprot->writeFieldEnd();
+  }
   xfer += oprot->writeFieldStop();
   xfer += oprot->writeStructEnd();
   return xfer;
@@ -23051,6 +23087,8 @@ void swap(NotificationEventsCountRequest &a, NotificationEventsCountRequest &b) 
   swap(a.fromEventId, b.fromEventId);
   swap(a.dbName, b.dbName);
   swap(a.catName, b.catName);
+  swap(a.toEventId, b.toEventId);
+  swap(a.limit, b.limit);
   swap(a.__isset, b.__isset);
 }
 
@@ -23058,12 +23096,16 @@ NotificationEventsCountRequest::NotificationEventsCountRequest(const Notificatio
   fromEventId = other873.fromEventId;
   dbName = other873.dbName;
   catName = other873.catName;
+  toEventId = other873.toEventId;
+  limit = other873.limit;
   __isset = other873.__isset;
 }
 NotificationEventsCountRequest& NotificationEventsCountRequest::operator=(const NotificationEventsCountRequest& other874) {
   fromEventId = other874.fromEventId;
   dbName = other874.dbName;
   catName = other874.catName;
+  toEventId = other874.toEventId;
+  limit = other874.limit;
   __isset = other874.__isset;
   return *this;
 }
@@ -23073,6 +23115,8 @@ void NotificationEventsCountRequest::printTo(std::ostream& out) const {
   out << "fromEventId=" << to_string(fromEventId);
   out << ", " << "dbName=" << to_string(dbName);
   out << ", " << "catName="; (__isset.catName ? (out << to_string(catName)) : (out << "<null>"));
+  out << ", " << "toEventId="; (__isset.toEventId ? (out << to_string(toEventId)) : (out << "<null>"));
+  out << ", " << "limit="; (__isset.limit ? (out << to_string(limit)) : (out << "<null>"));
   out << ")";
 }
 
