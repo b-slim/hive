@@ -27,6 +27,9 @@ import org.apache.hadoop.hive.ql.exec.vector.mapjoin.hashtable.VectorMapJoinHash
 public abstract class VectorMapJoinFastHashTable implements VectorMapJoinHashTable {
   public static final Logger LOG = LoggerFactory.getLogger(VectorMapJoinFastHashTable.class);
 
+  // when rehashing, jump directly to 4k items
+  public static final int FIRST_SIZE_UP = 4096;
+
   protected int logicalHashBucketCount;
   protected int logicalHashBucketMask;
 
@@ -89,6 +92,12 @@ public abstract class VectorMapJoinFastHashTable implements VectorMapJoinHashTab
   @Override
   public int size() {
     return keysAssigned;
+  }
+
+  protected final boolean checkResize() {
+    // resize small hashtables up to a higher width (4096 items), but when there are collisions
+    return (resizeThreshold <= keysAssigned)
+        || (logicalHashBucketCount <= FIRST_SIZE_UP && largestNumberOfSteps > 1);
   }
 
   @Override
