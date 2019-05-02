@@ -279,6 +279,48 @@ public final class BuddyAllocator
         freeListIx, allocationSize, (int)(threadId % arenaCount), arenaCount);
     if (destAllocIx == dest.length) return;
 
+    // Before getting into brute force discard (eg random evictions section)
+    // let's try eviction more using cache eviction policy up tp a max allocation size.
+    int fastAttempt = 0;
+    long totalFastEvictedBytes = 0;
+    int startArenaIx;
+
+    while (totalFastEvictedBytes < maxAllocation && fastAttempt < MAX_DISCARD_ATTEMPTS) {
+      // Try to evict more starting from how much memory we are missing allocLog2 << dest.length - destAllocIx
+      // Exponentially increase the eviction request based on fastAttempt counter.
+      // Why Exponentially increase, usually query fragments triggers a burst of allocation at the same time
+      // Thus to avoid lock contentions it is worth it to over evict thus next allocation will get free lunch.
+      totalFastEvictedBytes += memoryManager.evictMemory(allocLog2 << dest.length - destAllocIx + fastAttempt);
+      startArenaIx = (int) ((threadId + fastAttempt) % arenaCount);
+      if (fastAttempt == 0) {
+        // Try to allocate memory if we haven't allocated all the way to maxSize yet; very rare.
+        destAllocIx = allocateWithExpand(dest, destAllocIx, freeListIx, allocationSize, arenaCount);
+        if (destAllocIx == dest.length) {
+          return;
+        }
+      }
+      destAllocIx =
+          allocateFast(dest, null, destAllocIx, dest.length, freeListIx, allocationSize, startArenaIx, arenaCount);
+      if (destAllocIx == dest.length) {
+        return;
+      }
+
+      destAllocIx =
+          allocateWithSplit(dest,
+              null,
+              destAllocIx,
+              dest.length,
+              freeListIx,
+              allocationSize,
+              startArenaIx,
+              arenaCount,
+              -1);
+      if (destAllocIx == dest.length) {
+        return;
+      }
+      fastAttempt++;
+    }
+
     // We called reserveMemory so we know that there's memory waiting for us somewhere.
     // However, we have a class of rare race conditions related to the order of locking/checking of
     // different allocation areas. Simple case - say we have 2 arenas, 256Kb available in arena 2.
@@ -301,17 +343,10 @@ public final class BuddyAllocator
       int discardFailed = 0;
       while (true) {
         // Try to split bigger blocks.
-        int startArenaIx = (int)((threadId + attempt) % arenaCount);
+        startArenaIx = (int)((threadId + attempt) % arenaCount);
         destAllocIx = allocateWithSplit(dest, null, destAllocIx, dest.length,
             freeListIx, allocationSize, startArenaIx, arenaCount, -1);
         if (destAllocIx == dest.length) return;
-
-        if (attempt == 0) {
-          // Try to allocate memory if we haven't allocated all the way to maxSize yet; very rare.
-          destAllocIx = allocateWithExpand(
-              dest, destAllocIx, freeListIx, allocationSize, arenaCount);
-          if (destAllocIx == dest.length) return;
-        }
 
         // Try to force-evict the fragments of the requisite size.
         boolean hasDiscardedAny = false;
@@ -360,7 +395,8 @@ public final class BuddyAllocator
         ++attempt;
       }
     } finally {
-      memoryManager.releaseMemory(memoryForceReleased);
+      // if we fail to allocate need to release the reserved amount plus the force evicted amount.
+      memoryManager.releaseMemory(memoryForceReleased + dest.length << allocLog2);
       if (!isFailed && attempt >= LOG_DISCARD_ATTEMPTS) {
         LlapIoImpl.LOG.info("Allocation of " + dest.length + " buffers of size " + size + " took "
             + attempt + " attempts to free enough memory; force-released " + memoryForceReleased);
