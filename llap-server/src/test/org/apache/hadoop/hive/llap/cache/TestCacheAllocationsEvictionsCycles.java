@@ -71,7 +71,7 @@ public class TestCacheAllocationsEvictionsCycles {
             null,
             memoryManager,
             cacheMetrics,
-            "",
+            "no-force-eviction",
             true);
     EvictionDispatcher evictionDispatcher = new EvictionDispatcher(dataCache, serdCache, metaDataCache, allocator);
     evictionTracker = new EvictionTracker(evictionDispatcher);
@@ -142,6 +142,107 @@ public class TestCacheAllocationsEvictionsCycles {
     for (MemoryBuffer memoryBuffer : dest) {
       Assert.assertNotNull(memoryBuffer);
       allocator.deallocate(memoryBuffer);
+    }
+  }
+
+  @Test(timeout = 60000L) public void TestRandomFragmentation() {
+
+    MemoryBuffer[] dest = new MemoryBuffer[64];
+    MemoryBuffer[] dest_2 = new MemoryBuffer[16];
+    MemoryBuffer[] dest_3 = new MemoryBuffer[8];
+    for (MemoryBuffer memoryBuffer : dest) {
+      Assert.assertNull(memoryBuffer);
+    }
+
+    allocator.allocateMultiple(dest, 8, null);
+    allocator.allocateMultiple(dest_2, 16, null);
+    allocator.allocateMultiple(dest_3, 32, null);
+    //all the cache is allocated with 8 X 128
+    Assert.assertEquals(maxSize, ((LowLevelCacheMemoryManager) memoryManager).getCurrentUsedSize());
+
+    for (int i = 0; i < dest.length; i++) {
+      LlapDataBuffer buffer = (LlapDataBuffer) dest[i];
+      // this is needed to make sure that the policy adds the buffers to the linked list as buffers ready to be evicted
+      cachePolicy.notifyUnlock(buffer);
+      // lock some buffers
+      if (i % 2 == 0) {
+        // lock the even buffers
+        buffer.incRef();
+      }
+    }
+
+    for (int i = 0; i < dest_2.length; i++) {
+      LlapDataBuffer buffer = (LlapDataBuffer) dest_2[i];
+      // this is needed to make sure that the policy adds the buffers to the linked list as buffers ready to be evicted
+      cachePolicy.notifyUnlock(buffer);
+      // lock some buffers
+      if (i % 2 == 0) {
+        // lock the even buffers
+        buffer.incRef();
+      }
+    }
+
+    for (int i = 0; i < dest_3.length; i++) {
+      LlapDataBuffer buffer = (LlapDataBuffer) dest_3[i];
+      // this is needed to make sure that the policy adds the buffers to the linked list as buffers ready to be evicted
+      cachePolicy.notifyUnlock(buffer);
+      // lock some buffers
+      if (i % 2 == 0) {
+        // lock the even buffers
+        buffer.incRef();
+      }
+    }
+    Assert.assertEquals(512, ((LowLevelCacheMemoryManager) memoryManager).purge());
+
+    for (MemoryBuffer memoryBuffer : dest_3) {
+      LlapDataBuffer buffer = (LlapDataBuffer) memoryBuffer;
+      // this is needed to make sure that the policy adds the buffers to the linked list as buffers ready to be evicted
+      if (buffer.isLocked()) {
+        buffer.decRef();
+      }
+      cachePolicy.notifyUnlock(buffer);
+    }
+
+    for (MemoryBuffer memoryBuffer : dest_2) {
+      LlapDataBuffer buffer = (LlapDataBuffer) memoryBuffer;
+      // this is needed to make sure that the policy adds the buffers to the linked list as buffers ready to be evicted
+      if (buffer.isLocked()) {
+        buffer.decRef();
+      }
+      cachePolicy.notifyUnlock(buffer);
+    }
+
+    for (MemoryBuffer memoryBuffer : dest) {
+      LlapDataBuffer buffer = (LlapDataBuffer) memoryBuffer;
+      // this is needed to make sure that the policy adds the buffers to the linked list as buffers ready to be evicted
+      if (buffer.isLocked()) {
+        buffer.decRef();
+      }
+      cachePolicy.notifyUnlock(buffer);
+    }
+    Assert.assertEquals(maxSize / 2, ((LowLevelCacheMemoryManager) memoryManager).getCurrentUsedSize());
+
+    dest = new MemoryBuffer[64];
+    dest_2 = new MemoryBuffer[16];
+    dest_3 = new MemoryBuffer[8];
+    evictionTracker.getEvicted().clear();
+    allocator.allocateMultiple(dest_2, 16, null);
+      allocator.allocateMultiple(dest, 8, null);
+    allocator.allocateMultiple(dest_3, 32, null);
+    Assert.assertEquals(maxSize, ((LowLevelCacheMemoryManager) memoryManager).getCurrentUsedSize());
+    Assert.assertEquals(dest_3.length / 2 + dest_2.length / 2 + dest.length / 2, evictionTracker.getEvicted().size());
+    for (MemoryBuffer memoryBuffer : dest) {
+      LlapDataBuffer buffer = (LlapDataBuffer) memoryBuffer;
+      allocator.deallocate(buffer);
+    }
+    for (MemoryBuffer memoryBuffer : dest_2) {
+      LlapDataBuffer buffer = (LlapDataBuffer) memoryBuffer;
+      allocator.deallocate(buffer);
+    }
+
+    for (MemoryBuffer memoryBuffer : dest_3) {
+      LlapDataBuffer buffer = (LlapDataBuffer) memoryBuffer;
+      allocator.deallocate(buffer);
     }
   }
 
