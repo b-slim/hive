@@ -19,14 +19,11 @@
 package org.apache.hadoop.hive.llap.io.decode;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.Pool;
 import org.apache.hadoop.hive.conf.HiveConf;
-import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
 import org.apache.hadoop.hive.llap.cache.BufferUsageManager;
 import org.apache.hadoop.hive.llap.cache.LowLevelCache;
 import org.apache.hadoop.hive.llap.counters.QueryFragmentCounters;
@@ -36,7 +33,6 @@ import org.apache.hadoop.hive.llap.io.encoded.OrcEncodedDataReader;
 import org.apache.hadoop.hive.llap.io.metadata.MetadataCache;
 import org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheMetrics;
 import org.apache.hadoop.hive.llap.metrics.LlapDaemonIOMetrics;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatchCtx;
 import org.apache.hadoop.hive.ql.io.orc.encoded.Consumer;
 import org.apache.hadoop.hive.ql.io.orc.encoded.IoTrace;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
@@ -47,7 +43,6 @@ import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hive.common.util.FixedSizedObjectPool;
-import org.apache.orc.TypeDescription;
 import org.apache.orc.OrcConf;
 
 public class OrcColumnVectorProducer implements ColumnVectorProducer {
@@ -90,8 +85,10 @@ public class OrcColumnVectorProducer implements ColumnVectorProducer {
       InputFormat<?, ?> unused0, Deserializer unused1, Reporter reporter, JobConf job,
       Map<Path, PartitionDesc> unused2) throws IOException {
     cacheMetrics.incrCacheReadRequests();
-    OrcEncodedDataConsumer edc = new OrcEncodedDataConsumer(
-        consumer, includes, _skipCorrupt, counters, ioMetrics);
+    //@TODO make it as a parameter for conf
+    int maxCvbPoolSize = (int) HiveConf.getSizeVar(conf, HiveConf.ConfVars.LLAP_IO_CVB_POOL_MAX_SIZE);
+        OrcEncodedDataConsumer edc = new OrcEncodedDataConsumer(
+        consumer, includes, _skipCorrupt, counters, ioMetrics, maxCvbPoolSize);
     OrcEncodedDataReader reader = new OrcEncodedDataReader(lowLevelCache, bufferManager,
         metadataCache, conf, job, split, includes, sarg, edc, counters, sef, tracePool);
     edc.init(reader, reader, reader.getTrace());

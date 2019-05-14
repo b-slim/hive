@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import org.apache.hadoop.hive.common.Pool;
 import org.apache.hadoop.hive.common.io.encoded.EncodedColumnBatch;
 import org.apache.hadoop.hive.llap.ConsumerFeedback;
 import org.apache.hadoop.hive.llap.counters.LlapIOCounters;
@@ -43,6 +44,7 @@ import org.apache.hadoop.hive.ql.exec.vector.StructColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.TimestampColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.UnionColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
+import org.apache.hive.common.util.FixedSizedObjectPool;
 import org.apache.orc.CompressionCodec;
 import org.apache.orc.impl.PositionProvider;
 import org.apache.hadoop.hive.ql.io.orc.encoded.Consumer;
@@ -60,6 +62,7 @@ import org.apache.orc.impl.TreeReaderFactory.TreeReader;
 import org.apache.orc.impl.WriterImpl;
 import org.apache.orc.OrcProto;
 
+import javax.validation.constraints.NotNull;
 
 public class OrcEncodedDataConsumer
   extends EncodedDataConsumer<OrcBatchKey, OrcEncodedColumnBatch> {
@@ -75,15 +78,22 @@ public class OrcEncodedDataConsumer
   private final Includes includes;
   private TypeDescription[] batchSchemas;
   private boolean useDecimal64ColumnVectors;
+  private final int colCount;
+  private final int maxCvbPoolSize;
 
-  public OrcEncodedDataConsumer(
-    Consumer<ColumnVectorBatch> consumer, Includes includes, boolean skipCorrupt,
-    QueryFragmentCounters counters, LlapDaemonIOMetrics ioMetrics) {
-    super(consumer, includes.getPhysicalColumnIds().size(), ioMetrics);
+  public OrcEncodedDataConsumer(Consumer<ColumnVectorBatch> consumer,
+      Includes includes,
+      boolean skipCorrupt,
+      QueryFragmentCounters counters,
+      LlapDaemonIOMetrics ioMetrics,
+      int maxCvbPoolSize) {
+    super(consumer, includes.getPhysicalColumnIds().size(), ioMetrics, counters, maxCvbPoolSize);
     this.includes = includes;
+    this.counters = counters;
     // TODO: get rid of this
     this.skipCorrupt = skipCorrupt;
-    this.counters = counters;
+    this.colCount = includes.getPhysicalColumnIds().size();
+    this.maxCvbPoolSize = maxCvbPoolSize;
   }
 
   public void setUseDecimal64ColumnVectors(final boolean useDecimal64ColumnVectors) {
@@ -151,7 +161,14 @@ public class OrcEncodedDataConsumer
           if (batchSize == 0) break;
         }
 
-        ColumnVectorBatch cvb = cvbPool.take();
+        ColumnVectorBatch cvb;
+        //pool is created here the first time
+        if (cvbPool != null) {
+          cvb = cvbPool.take();
+        } else {
+          cvb = new ColumnVectorBatch(colCount);
+        }
+
         // assert cvb.cols.length == batch.getColumnIxs().length; // Must be constant per split.
         cvb.size = batchSize;
         for (int idx = 0; idx < columnReaders.length; ++idx) {
@@ -203,6 +220,20 @@ public class OrcEncodedDataConsumer
           cv.ensureSize(batchSize, false);
           reader.nextVector(cv, null, batchSize);
         }
+        if (cvbPool == null) {
+
+          int sizeEstimate = VectorizedRowBatch.DEFAULT_SIZE * cvb.getWeight();
+          // @TODO assume we can not go beyond 500G maybe make it as param as well
+          int maxAllowed = 1024 * 1024 * 500 / sizeEstimate;
+          // @TODO rounding to the lowest power of 2 i think it is needed by the object pool
+          int poolSize = Math.min(maxCvbPoolSize, 1 << 31 - Integer.numberOfLeadingZeros(maxAllowed));
+          cvbPool = getCvbPool(poolSize);
+          // @TODO this is for debug remove it later
+          LlapIoImpl.LOG.info("Created pool for column with size estimate {} with size {}, maxAllowed is {}",
+              sizeEstimate,
+              poolSize,
+              maxAllowed);
+        }
 
         // we are done reading a batch, send it to consumer for processing
         downstreamConsumer.consumeData(cvb);
@@ -218,6 +249,17 @@ public class OrcEncodedDataConsumer
     }
   }
 
+  @NotNull private FixedSizedObjectPool<ColumnVectorBatch> getCvbPool(int maxCvbPoolSize) {
+    return new FixedSizedObjectPool<>(maxCvbPoolSize, new Pool.PoolObjectHelper<ColumnVectorBatch>() {
+      @Override public ColumnVectorBatch create() {
+        return new ColumnVectorBatch(colCount);
+      }
+
+      @Override public void resetBeforeOffer(ColumnVectorBatch t) {
+        // Don't reset anything, we are reusing column vectors.
+      }
+    });
+  }
   private void createColumnReaders(OrcEncodedColumnBatch batch,
       ConsumerStripeMetadata stripeMetadata, TypeDescription fileSchema) throws IOException {
     TreeReaderFactory.Context context = new TreeReaderFactory.ReaderContext()

@@ -28,6 +28,7 @@ import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 public class ColumnVectorBatch {
   public ColumnVector[] cols;
   public int size;
+  private int weight;
 
   public ColumnVectorBatch(int columnCount) {
     this(columnCount, VectorizedRowBatch.DEFAULT_SIZE);
@@ -84,5 +85,33 @@ public class ColumnVectorBatch {
     }
 
     return b.toString();
+  }
+
+  public int getWeight() {
+    if (weight == 0 && size > 0) {
+      for (int i = 0; i < cols.length; i++) {
+        weight += typeWeight(cols[i].type) * size;
+      }
+    }
+    return weight;
+  }
+
+  private int typeWeight(ColumnVector.Type type) {
+    switch (type) {
+    case DECIMAL_64:
+    case LONG:
+      return Long.BYTES;
+    case DOUBLE:
+      return Double.BYTES;
+    case DECIMAL:
+      return Long.BYTES * 3;
+    case TIMESTAMP:
+    case INTERVAL_DAY_TIME:
+      return Long.BYTES + Integer.BYTES;
+    default:
+      //TODO worst case maybe pick a better default ?
+      return 16;
+    }
+
   }
 }

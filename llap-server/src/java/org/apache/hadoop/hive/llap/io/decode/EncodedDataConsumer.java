@@ -19,17 +19,14 @@ package org.apache.hadoop.hive.llap.io.decode;
 
 import java.util.concurrent.Callable;
 
-import org.apache.hadoop.hive.common.Pool;
 import org.apache.hadoop.hive.common.io.encoded.EncodedColumnBatch;
 import org.apache.hadoop.hive.llap.ConsumerFeedback;
-import org.apache.hadoop.hive.llap.DebugUtils;
+import org.apache.hadoop.hive.llap.counters.QueryFragmentCounters;
 import org.apache.hadoop.hive.llap.io.api.impl.ColumnVectorBatch;
 import org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl;
 import org.apache.hadoop.hive.llap.metrics.LlapDaemonIOMetrics;
 import org.apache.hadoop.hive.ql.io.orc.encoded.Consumer;
-import org.apache.hadoop.hive.ql.io.orc.encoded.IoTrace;
 import org.apache.hive.common.util.FixedSizedObjectPool;
-import org.apache.orc.TypeDescription;
 
 public abstract class EncodedDataConsumer<BatchKey, BatchType extends EncodedColumnBatch<BatchKey>>
   implements Consumer<BatchType>, ReadPipeline {
@@ -39,24 +36,22 @@ public abstract class EncodedDataConsumer<BatchKey, BatchType extends EncodedCol
   private Callable<Void> readCallable;
   private final LlapDaemonIOMetrics ioMetrics;
   // Note that the pool is per EDC - within EDC, CVBs are expected to have the same schema.
-  private static final int CVB_POOL_SIZE = 128;
-  protected final FixedSizedObjectPool<ColumnVectorBatch> cvbPool;
+  private final int maxCvbPoolSize;
+  protected FixedSizedObjectPool<ColumnVectorBatch> cvbPool;
+  protected final QueryFragmentCounters counters;
+  private final int colCount;
 
-  public EncodedDataConsumer(Consumer<ColumnVectorBatch> consumer, final int colCount,
-      LlapDaemonIOMetrics ioMetrics) {
+  public EncodedDataConsumer(Consumer<ColumnVectorBatch> consumer,
+      final int colCount,
+      LlapDaemonIOMetrics ioMetrics,
+      QueryFragmentCounters counters, int maxCvbPoolSize) {
     this.downstreamConsumer = consumer;
     this.ioMetrics = ioMetrics;
-    cvbPool = new FixedSizedObjectPool<ColumnVectorBatch>(CVB_POOL_SIZE,
-        new Pool.PoolObjectHelper<ColumnVectorBatch>() {
-          @Override
-          public ColumnVectorBatch create() {
-            return new ColumnVectorBatch(colCount);
-          }
-          @Override
-          public void resetBeforeOffer(ColumnVectorBatch t) {
-            // Don't reset anything, we are reusing column vectors.
-          }
-        });
+    // compute the pool size based on weight
+    cvbPool = null;
+    this.colCount = colCount;
+    this.maxCvbPoolSize = maxCvbPoolSize;
+    this.counters = counters;
   }
 
   public void init(ConsumerFeedback<BatchType> upstreamFeedback,
