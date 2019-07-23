@@ -13,6 +13,7 @@
  */
 package org.apache.hadoop.hive.llap.registry.impl;
 
+import org.apache.curator.framework.recipes.cache.TreeCache;
 import org.apache.hadoop.registry.client.binding.RegistryUtils;
 
 import com.google.common.collect.Sets;
@@ -29,7 +30,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import org.apache.curator.framework.recipes.cache.ChildData;
-import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.utils.CloseableUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -49,7 +49,6 @@ import org.apache.hadoop.registry.client.types.ServiceRecord;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.tez.client.registry.zookeeper.ZkConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,14 +77,30 @@ public class LlapZookeeperRegistryImpl
   // to be used by clients of ServiceRegistry TODO: this is unnecessary
   private DynamicServiceInstanceSet instances;
 
+
   public LlapZookeeperRegistryImpl(String instanceName, Configuration conf) {
     super(instanceName, conf,
-        HiveConf.getVar(conf, ConfVars.LLAP_ZK_REGISTRY_NAMESPACE), NAMESPACE_PREFIX,
-        USER_SCOPE_PATH_PREFIX, WORKER_PREFIX, WORKER_GROUP,
+          HiveConf.getVar(conf, ConfVars.LLAP_ZK_REGISTRY_NAMESPACE), NAMESPACE_PREFIX,
+          USER_SCOPE_PATH_PREFIX, WORKER_PREFIX, WORKER_GROUP,
         LlapProxy.isDaemon() ? SASL_LOGIN_CONTEXT_NAME : null,
-        HiveConf.getVar(conf, ConfVars.LLAP_KERBEROS_PRINCIPAL),
-        HiveConf.getVar(conf, ConfVars.LLAP_KERBEROS_KEYTAB_FILE),
-        ConfVars.LLAP_VALIDATE_ACLS);
+          HiveConf.getVar(conf, ConfVars.LLAP_KERBEROS_PRINCIPAL),
+          HiveConf.getVar(conf, ConfVars.LLAP_KERBEROS_KEYTAB_FILE),
+          ConfVars.LLAP_VALIDATE_ACLS, null
+    );
+    LOG.info("Llap Zookeeper Registry is enabled with registryid: " + instanceName);
+  }
+
+  public LlapZookeeperRegistryImpl(String instanceName, String computeName, Configuration conf)
+  {
+    super(instanceName, conf,
+          HiveConf.getVar(conf, ConfVars.LLAP_ZK_REGISTRY_NAMESPACE), NAMESPACE_PREFIX,
+          USER_SCOPE_PATH_PREFIX, WORKER_PREFIX, WORKER_GROUP,
+          LlapProxy.isDaemon() ? SASL_LOGIN_CONTEXT_NAME : null,
+          HiveConf.getVar(conf, ConfVars.LLAP_KERBEROS_PRINCIPAL),
+          HiveConf.getVar(conf, ConfVars.LLAP_KERBEROS_KEYTAB_FILE),
+          ConfVars.LLAP_VALIDATE_ACLS,
+          computeName
+    );
     LOG.info("Llap Zookeeper Registry is enabled with registryid: " + instanceName);
   }
 
@@ -143,13 +158,7 @@ public class LlapZookeeperRegistryImpl
         srv.set(kv.getKey(), kv.getValue());
       }
     }
-
-    boolean computeGroupEnabled = HiveConf.getBoolVar(conf, ConfVars.LLAP_DAEMON_SERVICE_HOSTS_ENABLE_COMPUTE_GROUPS);
-    if (computeGroupEnabled) {
-      String computeName = System.getenv(ZkConfig.COMPUTE_GROUP_NAME_ENV);
-      if (computeName == null || computeName.isEmpty()) {
-        computeName = DEFAULT_COMPUTE_GROUP_NAME;
-      }
+    if (this.computeName != null) {
       srv.set("computeName", computeName);
       LOG.info("Compute grouping enabled. Using computeName: {}", computeName);
     }
@@ -257,11 +266,11 @@ public class LlapZookeeperRegistryImpl
   // TODO: this class is completely unnecessary... 1-on-1 mapping with parent.
   //       Remains here as the legacy of the original higher-level interface (getInstance).
   private static class DynamicServiceInstanceSet implements LlapServiceInstanceSet {
-    private final PathChildrenCache instancesCache;
+    private final TreeCache instancesCache;
     private final LlapZookeeperRegistryImpl parent;
     private final ServiceRecordMarshal encoder;
 
-    public DynamicServiceInstanceSet(PathChildrenCache cache,
+    public DynamicServiceInstanceSet(TreeCache cache,
         LlapZookeeperRegistryImpl parent, ServiceRecordMarshal encoder) {
       this.instancesCache = cache;
       this.parent = parent;
@@ -303,7 +312,7 @@ public class LlapZookeeperRegistryImpl
 
     @Override
     public ApplicationId getApplicationId() {
-      for (ChildData childData : instancesCache.getCurrentData()) {
+      for (ChildData childData : instancesCache.getCurrentChildren(parent.registryPrefix).values()) {
         byte[] data = getWorkerData(childData, WORKER_PREFIX);
         if (data == null) continue;
         ServiceRecord sr = null;
@@ -330,10 +339,10 @@ public class LlapZookeeperRegistryImpl
   // ZK cache yet completely depends on the parent in every other aspect and is thus unneeded.
 
   Collection<LlapServiceInstance> getAllInstancesOrdered(
-      boolean consistentIndexes, PathChildrenCache instancesCache) {
-    Map<String, Long> slotByWorker = new HashMap<String, Long>();
+      boolean consistentIndexes, TreeCache instancesCache) {
+    Map<String, Long> slotByWorker = new HashMap<>();
     Set<LlapServiceInstance> unsorted = Sets.newHashSet();
-    for (ChildData childData : instancesCache.getCurrentData()) {
+    for (ChildData childData : instancesCache.getCurrentChildren(registryPrefix).values()) {
       if (childData == null) continue;
       byte[] data = childData.getData();
       if (data == null) continue;
@@ -399,7 +408,7 @@ public class LlapZookeeperRegistryImpl
   @Override
   public LlapServiceInstanceSet getInstances(
       String component, long clusterReadyTimeoutMs) throws IOException {
-    PathChildrenCache instancesCache = ensureInstancesCache(clusterReadyTimeoutMs);
+    TreeCache instancesCache = ensureInstancesCache(clusterReadyTimeoutMs);
 
     // lazily create instances
     if (instances == null) {

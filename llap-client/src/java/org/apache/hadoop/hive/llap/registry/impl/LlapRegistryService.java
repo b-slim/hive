@@ -92,14 +92,16 @@ public class LlapRegistryService extends AbstractService {
     if (hosts.startsWith("@")) {
       String instanceName = hosts.substring(1);
       boolean computeGroupEnabled = HiveConf.getBoolVar(conf, ConfVars.LLAP_DAEMON_SERVICE_HOSTS_ENABLE_COMPUTE_GROUPS);
+      String computeName;
       if (computeGroupEnabled) {
-        String computeName = System.getenv(ZkConfig.COMPUTE_GROUP_NAME_ENV);
+        computeName = System.getenv(ZkConfig.COMPUTE_GROUP_NAME_ENV);
         if (computeName == null || computeName.isEmpty()) {
           computeName = ZkConfig.DEFAULT_COMPUTE_GROUP_NAME;
         }
-        instanceName = instanceName + Path.SEPARATOR + computeName;
+        registry = new LlapZookeeperRegistryImpl(instanceName, computeName, conf);
+      } else {
+        registry = new LlapZookeeperRegistryImpl(instanceName, conf);
       }
-      registry = new LlapZookeeperRegistryImpl(instanceName, conf);
       this.isDynamic=true;
     } else {
       registry = new LlapFixedRegistryImpl(hosts, conf);
