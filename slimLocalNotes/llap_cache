@@ -1,0 +1,15 @@
+llap cache 
+asynch prefetch
+cache can be optional
+
+DiskRange file id maxSize maps location split
+BufferPools
+fileId  -> immutable (has versions) hdfs idnodes it is the key for all the caches
+
+constsitant hasing for the split 
+HostAffinity
+SlotZnode
+LlapIoImpl
+LlapDecider
+LlapRecordReader
+LlapProtocolSer

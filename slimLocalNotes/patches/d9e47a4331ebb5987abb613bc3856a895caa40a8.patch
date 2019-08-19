@@ -1,0 +1,120 @@
+commit d9e47a4331ebb5987abb613bc3856a895caa40a8
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Fri Mar 22 15:18:49 2019 -0700
+
+    added counters for fragmentations
+    
+    Change-Id: I6cd9f0b9ae3256dbac1e6b2a3d90f7280b82519c
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+index c10e1de55c..a9335c2072 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+@@ -162,6 +162,7 @@ public BuddyAllocator(boolean isDirectVal, boolean isMappedVal, int minAllocVal,
+     int initCount = doPreallocate && !isMapped ? maxArenas : 1;
+     for (int i = 0; i < initCount; ++i) {
+       arenas[i].init(i);
++      metrics.incrAllocatedArena();
+     }
+     allocatedArenas.set(initCount);
+     this.memoryManager = memoryManager;
+@@ -170,7 +171,6 @@ public BuddyAllocator(boolean isDirectVal, boolean isMappedVal, int minAllocVal,
+       defragCounters[i] = new AtomicLong(0);
+     }
+     this.metrics = metrics;
+-    metrics.incrAllocatedArena();
+     boolean isBoth = null == discardMethod || "both".equalsIgnoreCase(discardMethod);
+     doUseFreeListDiscard = isBoth || "freelist".equalsIgnoreCase(discardMethod);
+     doUseBruteDiscard = isBoth || "brute".equalsIgnoreCase(discardMethod);
+@@ -261,6 +261,7 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+     //LlapIoImpl.LOG.info("Trace-AllocateMultiple [{}] Buffers with size [{}] total memory [{}]", dest.length, size, dest.length << allocLog2);
+     // If using async, we could also reserve one by one.
+     memoryManager.reserveMemory(dest.length << allocLog2, isStopped);
++    metrics.incAllocatorTotalBytes(size);
+     for (int i = 0; i < dest.length; ++i) {
+       if (dest[i] != null) continue;
+       // Note: this is backward compat only. Should be removed with createUnallocated.
+@@ -361,8 +362,10 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+         ++attempt;
+       }
+     } finally {
++      metrics.incAllocatorBruteForceEvictedBytes(memoryBruteForceReleased);
++      metrics.incAllocatorFreeListEvictedBytes(memoryFreeListReleased);
+       memoryManager.releaseMemory(memoryFreeListReleased + memoryBruteForceReleased);
+-      if (!isFailed && attempt >= LOG_DISCARD_ATTEMPTS) {
++      if (!isFailed && attempt >= LOG_DISCARD_ATTEMPTS && (memoryFreeListReleased | memoryBruteForceReleased) > 0) {
+         LlapIoImpl.LOG.info("Allocation of " + dest.length + " buffers of size " + size + " took "
+             + attempt + " attempts to free enough memory; free list " + memoryFreeListReleased + " brutForce " + memoryBruteForceReleased);
+       }
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheInfo.java b/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheInfo.java
+index 746faa5755..6c919e9a1a 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheInfo.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheInfo.java
+@@ -36,7 +36,10 @@
+   CacheHitRatio("Ratio of disk ranges cached vs requested"),
+   CacheReadRequests("Number of disk range requests to cache"),
+   CacheAllocatedArena("Number of arenas allocated"),
+-  CacheNumLockedBuffers("Number of locked buffers in cache");
++  CacheNumLockedBuffers("Number of locked buffers in cache"),
++  AllocatorBruteForceEvictedBytes("Total bytes evicted using brute force discard"),
++  AllocatorFreeListEvictedBytes("Total bytes evicted using free list discrad"),
++  AllocatorTotalAllocated("Total Number of bytes allocated");
+ 
+   private final String desc;
+ 
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheMetrics.java b/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheMetrics.java
+index cba66d36bc..c8776041b8 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheMetrics.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheMetrics.java
+@@ -17,6 +17,9 @@
+  */
+ package org.apache.hadoop.hive.llap.metrics;
+ 
++import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.AllocatorBruteForceEvictedBytes;
++import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.AllocatorFreeListEvictedBytes;
++import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.AllocatorTotalAllocated;
+ import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.CacheAllocatedArena;
+ import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.CacheCapacityRemaining;
+ import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.CacheCapacityRemainingPercentage;
+@@ -66,6 +69,12 @@
+   MutableCounterLong cacheAllocatedArena;
+   @Metric
+   MutableCounterLong cacheNumLockedBuffers;
++  @Metric
++  MutableCounterLong allocatorForceEvictedBytes;
++  @Metric
++  MutableCounterLong allocatorFreeListEvictedBytes;
++  @Metric
++  MutableCounterLong allocatorTotalAllocatedBytes;
+ 
+   private LlapDaemonCacheMetrics(String name, String sessionId) {
+     this.name = name;
+@@ -125,6 +134,18 @@ public long getCacheHitBytes() {
+     return cacheHitBytes.value();
+   }
+ 
++  public void incAllocatorTotalBytes(long delta) {
++    allocatorTotalAllocatedBytes.incr(delta);
++  }
++
++  public void incAllocatorBruteForceEvictedBytes(long delta) {
++    allocatorForceEvictedBytes.incr(delta);
++  }
++
++  public void incAllocatorFreeListEvictedBytes(long delta) {
++    allocatorFreeListEvictedBytes.incr(delta);
++  }
++
+   @Override
+   public void getMetrics(MetricsCollector collector, boolean b) {
+     MetricsRecordBuilder rb = collector.addRecord(CacheMetrics)
+@@ -150,6 +171,9 @@ private void getCacheStats(MetricsRecordBuilder rb) {
+         .addCounter(CacheHitBytes, cacheHitBytes.value())
+         .addCounter(CacheAllocatedArena, cacheAllocatedArena.value())
+         .addCounter(CacheNumLockedBuffers, cacheNumLockedBuffers.value())
++        .addCounter(AllocatorBruteForceEvictedBytes, allocatorForceEvictedBytes.value())
++        .addCounter(AllocatorFreeListEvictedBytes, allocatorFreeListEvictedBytes.value())
++        .addCounter(AllocatorTotalAllocated, allocatorTotalAllocatedBytes.value())
+         .addGauge(CacheHitRatio, cacheHitRatio);
+   }
+ 

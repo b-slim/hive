@@ -1,0 +1,28 @@
+commit a90dbcc950f12c59ee210ca207c99a56c6ef633c
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Wed Mar 27 13:03:44 2019 -0700
+
+    Adding alloc with expand for the case of ssd thought
+    
+    Change-Id: I40add9c16d836048239ec68a9bf2694fe678e68f
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+index 2c8440e87f..94a0d13fba 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+@@ -309,6 +309,15 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+       if (destAllocIx == dest.length)
+         return;
+ 
++      if (fastAttempt == 0) {
++        // Try to allocate memory if we haven't allocated all the way to maxSize yet; very rare.
++        prevAllocIx = destAllocIx;
++        destAllocIx = allocateWithExpand(
++            dest, destAllocIx, freeListIx, allocationSize, arenaCount);
++        metrics.incrAllocationWithExpand((destAllocIx - prevAllocIx ) * allocationSize);
++        if (destAllocIx == dest.length) return;
++      }
++
+       forceEvictedBlocks += memoryManager.evictNBlocks(allocationSize, dest.length - destAllocIx);
+       fastAttempt++;
+       metrics.incAllocatorBruteForceEvictedBytes(forceEvictedBlocks * allocationSize);

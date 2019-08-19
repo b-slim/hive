@@ -1,0 +1,36 @@
+commit 97b9cc9088529b43bd5c98a0cb69c232d7056dd0
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Wed Mar 27 19:30:51 2019 -0700
+
+    try to not force evict right away
+    
+    Change-Id: I01d5564438fd6e4c69a6c5e926b83d09e2b53b57
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+index 94a0d13fba..646da7c4a4 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+@@ -57,7 +57,7 @@
+   private static final long MAX_DUMP_INTERVAL_NS = 300 * 1000000000L; // 5 minutes.
+   private final AtomicLong lastLog = new AtomicLong(-1);
+   private final LlapDaemonCacheMetrics metrics;
+-  private static final int MAX_DISCARD_ATTEMPTS = 10, LOG_DISCARD_ATTEMPTS = 0;
++  private static final int MAX_DISCARD_ATTEMPTS = 20, LOG_DISCARD_ATTEMPTS = 0;
+ 
+   // Config settings
+   private final int minAllocLog2, maxAllocLog2, arenaSizeLog2, maxArenas;
+@@ -318,7 +318,13 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+         if (destAllocIx == dest.length) return;
+       }
+ 
+-      forceEvictedBlocks += memoryManager.evictNBlocks(allocationSize, dest.length - destAllocIx);
++      if (fastAttempt > 10 && fastAttempt < 15) {
++        memoryManager.reserveMemory(allocationSize * fastAttempt, isStopped);
++        memoryManager.releaseMemory(allocationSize * fastAttempt);
++      } else if (fastAttempt > 15) {
++        memoryManager.evictNBlocks(allocationSize, dest.length - destAllocIx);
++      }
++
+       fastAttempt++;
+       metrics.incAllocatorBruteForceEvictedBytes(forceEvictedBlocks * allocationSize);
+       metrics.incrAllocationAttempt(1);

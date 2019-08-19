@@ -1,0 +1,356 @@
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheImpl.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheImpl.java
+index ce2a96edb0..8b54cd9675 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheImpl.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheImpl.java
+@@ -41,7 +41,6 @@
+ 
+ import com.google.common.annotations.VisibleForTesting;
+ import com.google.common.base.Function;
+-import com.google.common.base.Joiner;
+ 
+ public class LowLevelCacheImpl implements LowLevelCache, BufferUsageManager, LlapOomDebugDump {
+   private static final int DEFAULT_CLEANUP_INTERVAL = 600;
+@@ -93,6 +92,8 @@ public void startThreads() {
+   public DiskRangeList getFileData(Object fileKey, DiskRangeList ranges, long baseOffset,
+       DiskRangeListFactory factory, LowLevelCacheCounters qfCounters, BooleanRef gotAllData) {
+     if (ranges == null) return null;
++    long statTime = System.nanoTime();
++    //Add some measurements here. This is where the lookup in the cache happens
+     DiskRangeList prev = ranges.prev;
+     FileCache<ConcurrentSkipListMap<Long, LlapDataBuffer>> subCache = cache.get(fileKey);
+     if (subCache == null || !subCache.incRef()) {
+@@ -104,6 +105,7 @@ public DiskRangeList getFileData(Object fileKey, DiskRangeList ranges, long base
+       if (prev != null && gotAllData != null) {
+         gotAllData.value = false;
+       }
++      LlapIoImpl.CACHE_LOGGER.info("Time to getFileData case_cache_miss {}", System.nanoTime() - statTime);
+       return ranges;
+     }
+     try {
+@@ -174,6 +176,7 @@ public DiskRangeList getFileData(Object fileKey, DiskRangeList ranges, long base
+       LlapIoImpl.LOG.error(s);
+       throw new RuntimeException(s);
+     }
++    LlapIoImpl.CACHE_LOGGER.info("Time to getFileData case_cache_hit {}", System.nanoTime() - statTime);
+     return prev.next;
+   }
+ 
+@@ -277,6 +280,7 @@ private DiskRangeList addCachedBufferToIter(
+   }
+ 
+   private boolean lockBuffer(LlapDataBuffer buffer, boolean doNotifyPolicy) {
++    long startTime = System.nanoTime();
+     int rc = buffer.incRef();
+     if (rc > 0) {
+       metrics.incrCacheNumLockedBuffers();
+@@ -285,12 +289,14 @@ private boolean lockBuffer(LlapDataBuffer buffer, boolean doNotifyPolicy) {
+       // We have just locked a buffer that wasn't previously locked.
+       cachePolicy.notifyLock(buffer);
+     }
++    metrics.incTimeToLockBuffers(System.nanoTime() - startTime);
+     return rc > 0;
+   }
+ 
+   @Override
+   public long[] putFileData(Object fileKey, DiskRange[] ranges, MemoryBuffer[] buffers,
+       long baseOffset, Priority priority, LowLevelCacheCounters qfCounters, String tag) {
++    long startTime = System.nanoTime();
+     long[] result = null;
+     assert buffers.length == ranges.length;
+     FileCache<ConcurrentSkipListMap<Long, LlapDataBuffer>> subCache =
+@@ -354,6 +360,8 @@ private boolean lockBuffer(LlapDataBuffer buffer, boolean doNotifyPolicy) {
+     } finally {
+       subCache.decRef();
+     }
++
++    LlapIoImpl.CACHE_LOGGER.info("Put data into cache took {}", System.nanoTime() - startTime);
+     return result;
+   }
+ 
+@@ -373,7 +381,9 @@ public void decRefBuffers(List<MemoryBuffer> cacheBuffers) {
+     }
+   }
+ 
++  //This where the buffers get unlocked
+   private void unlockBuffer(LlapDataBuffer buffer, boolean handleLastDecRef) {
++    final long startTime = System.nanoTime();
+     boolean isLastDecref = (buffer.decRef() == 0);
+     if (handleLastDecRef && isLastDecref) {
+       // This is kind of not pretty, but this is how we detect whether buffer was cached.
+@@ -388,6 +398,7 @@ private void unlockBuffer(LlapDataBuffer buffer, boolean handleLastDecRef) {
+       }
+     }
+     metrics.decrCacheNumLockedBuffers();
++    metrics.incTimeToUnlockBuffers(System.nanoTime() - startTime);
+   }
+ 
+   private static final ByteBuffer fakeBuf = ByteBuffer.wrap(new byte[1]);
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/io/api/impl/LlapRecordReader.java b/llap-server/src/java/org/apache/hadoop/hive/llap/io/api/impl/LlapRecordReader.java
+index 0a8ab876ba..a765011fb4 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/io/api/impl/LlapRecordReader.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/io/api/impl/LlapRecordReader.java
+@@ -449,6 +449,7 @@ public void uncaughtException(final Thread t, final Throwable e) {
+   ColumnVectorBatch nextCvb() throws InterruptedException, IOException {
+     boolean isFirst = (lastCvb == null);
+     if (!isFirst) {
++      //This guy return possibly unlock the old DS used form previous iteration
+       feedback.returnData(lastCvb);
+     }
+ 
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/io/metadata/MetadataCache.java b/llap-server/src/java/org/apache/hadoop/hive/llap/io/metadata/MetadataCache.java
+index 780773d88a..6c2bc677a7 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/io/metadata/MetadataCache.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/io/metadata/MetadataCache.java
+@@ -35,7 +35,6 @@
+ import org.apache.hadoop.hive.common.io.DataCache.BooleanRef;
+ import org.apache.hadoop.hive.common.io.encoded.MemoryBuffer;
+ import org.apache.hadoop.hive.llap.cache.BuddyAllocator;
+-import org.apache.hadoop.hive.llap.cache.EvictionAwareAllocator;
+ import org.apache.hadoop.hive.llap.cache.EvictionDispatcher;
+ import org.apache.hadoop.hive.llap.cache.LlapAllocatorBuffer;
+ import org.apache.hadoop.hive.llap.cache.LlapOomDebugDump;
+@@ -45,7 +44,6 @@
+ import org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl;
+ import org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheMetrics;
+ import org.apache.hadoop.hive.ql.io.orc.encoded.OrcBatchKey;
+-import org.apache.hadoop.hive.ql.io.orc.encoded.StoppableAllocator;
+ 
+ public class MetadataCache implements LlapOomDebugDump, FileMetadataCache {
+   private final ConcurrentHashMap<Object, LlapBufferOrBuffers> metadata =
+@@ -69,6 +67,7 @@ public MetadataCache(BuddyAllocator allocator, MemoryManager memoryManager,
+ 
+   public void putIncompleteCbs(Object fileKey, DiskRange[] ranges, long baseOffset, AtomicBoolean isStopped) {
+     if (estimateErrors == null) return;
++    long startTime = System.nanoTime();
+     OrcFileEstimateErrors errorData = estimateErrors.get(fileKey);
+     boolean isNew = false;
+     // We should technically update memory usage if updating the old object, but we don't do it
+@@ -98,6 +97,7 @@ public void putIncompleteCbs(Object fileKey, DiskRange[] ranges, long baseOffset
+       }
+     }
+     policy.notifyUnlock(errorData);
++    LlapIoImpl.CACHE_LOGGER.info("Time to put incomplete metadata {}", System.nanoTime() - startTime);
+   }
+ 
+   public DiskRangeList getIncompleteCbs(
+@@ -432,6 +432,7 @@ private void discardMultiBuffer(LlapBufferOrBuffers removed) {
+   }
+ 
+   public boolean lockOneBuffer(LlapAllocatorBuffer buffer, boolean doNotifyPolicy) {
++    long startTime = System.nanoTime();
+     int rc = buffer.incRef();
+     if (rc > 0) {
+       metrics.incrCacheNumLockedBuffers();
+@@ -440,22 +441,27 @@ public boolean lockOneBuffer(LlapAllocatorBuffer buffer, boolean doNotifyPolicy)
+       // We have just locked a buffer that wasn't previously locked.
+       policy.notifyLock(buffer);
+     }
++    metrics.incTimeToLockBuffers(System.nanoTime() - startTime);
+     return rc > 0;
+   }
+ 
+   private void unlockBuffer(LlapBufferOrBuffers buffers, boolean isCached) {
++    long startTime = System.nanoTime();
+     LlapAllocatorBuffer singleBuffer = buffers.getSingleLlapBuffer();
+     if (singleBuffer != null) {
+       unlockSingleBuffer(singleBuffer, isCached);
++      metrics.incTimeToUnlockBuffers(System.nanoTime() - startTime);
+       return;
+     }
+     for (LlapAllocatorBuffer buffer : buffers.getMultipleLlapBuffers()) {
+       unlockSingleBuffer(buffer, isCached);
+     }
++    metrics.incTimeToUnlockBuffers(System.nanoTime() - startTime);
+   }
+ 
+   private void unlockSingleBuffer(LlapAllocatorBuffer buffer, boolean isCached) {
+     boolean isLastDecref = (buffer.decRef() == 0);
++    long startTime = System.nanoTime();
+     if (isLastDecref) {
+       if (isCached) {
+         policy.notifyUnlock(buffer);
+@@ -464,6 +470,7 @@ private void unlockSingleBuffer(LlapAllocatorBuffer buffer, boolean isCached) {
+       }
+     }
+     metrics.decrCacheNumLockedBuffers();
++    metrics.incTimeToUnlockBuffers(System.nanoTime() - startTime);
+   }
+ 
+   private final static class StripeKey {
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheInfo.java b/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheInfo.java
+index 746faa5755..4e7bb7e594 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheInfo.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheInfo.java
+@@ -36,7 +36,9 @@
+   CacheHitRatio("Ratio of disk ranges cached vs requested"),
+   CacheReadRequests("Number of disk range requests to cache"),
+   CacheAllocatedArena("Number of arenas allocated"),
+-  CacheNumLockedBuffers("Number of locked buffers in cache");
++  CacheNumLockedBuffers("Number of locked buffers in cache"),
++  CacheTimeToUnlockBuffers("Total time to of unlocked buffers in cache ns"),
++  CacheTimeToLockBuffers("Total time to of unlocked buffers in cache ns");
+ 
+   private final String desc;
+ 
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheMetrics.java b/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheMetrics.java
+index cba66d36bc..6b6259ebb2 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheMetrics.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonCacheMetrics.java
+@@ -28,6 +28,8 @@
+ import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.CacheNumLockedBuffers;
+ import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.CacheReadRequests;
+ import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.CacheRequestedBytes;
++import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.CacheTimeToLockBuffers;
++import static org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheInfo.CacheTimeToUnlockBuffers;
+ import static org.apache.hadoop.metrics2.impl.MsInfo.ProcessName;
+ import static org.apache.hadoop.metrics2.impl.MsInfo.SessionId;
+ 
+@@ -66,6 +68,10 @@
+   MutableCounterLong cacheAllocatedArena;
+   @Metric
+   MutableCounterLong cacheNumLockedBuffers;
++  @Metric
++  MutableCounterLong timeToUnlockBuffers;
++  @Metric
++  MutableCounterLong timeToLockBuffers;
+ 
+   private LlapDaemonCacheMetrics(String name, String sessionId) {
+     this.name = name;
+@@ -99,6 +105,13 @@ public void incrCacheReadRequests() {
+     cacheReadRequests.incr();
+   }
+ 
++  public void incTimeToUnlockBuffers(long delta) {
++    timeToUnlockBuffers.incr(delta);
++  }
++
++  public void incTimeToLockBuffers(long delta) {
++    timeToLockBuffers.incr(delta);
++  }
+   public void incrAllocatedArena() {
+     cacheAllocatedArena.incr();
+   }
+@@ -150,7 +163,9 @@ private void getCacheStats(MetricsRecordBuilder rb) {
+         .addCounter(CacheHitBytes, cacheHitBytes.value())
+         .addCounter(CacheAllocatedArena, cacheAllocatedArena.value())
+         .addCounter(CacheNumLockedBuffers, cacheNumLockedBuffers.value())
+-        .addGauge(CacheHitRatio, cacheHitRatio);
++        .addGauge(CacheHitRatio, cacheHitRatio)
++        .addCounter(CacheTimeToUnlockBuffers, timeToUnlockBuffers.value())
++        .addCounter(CacheTimeToLockBuffers, timeToLockBuffers.value());
+   }
+ 
+ }
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonIOMetrics.java b/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonIOMetrics.java
+index 4a0226045f..4448c80eb8 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonIOMetrics.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/metrics/LlapDaemonIOMetrics.java
+@@ -88,7 +88,7 @@ public String getName() {
+     return name;
+   }
+ 
+-  public void addDecodeBatchTime(long latency) {
++  public void  addDecodeBatchTime(long latency) {
+     rateOfDecoding.add(latency);
+     if (latency > maxTime) {
+       maxTime = latency;
+diff --git a/llap-server/src/test/org/apache/hadoop/hive/llap/cache/TestLowLevelLrfuCachePolicy.java b/llap-server/src/test/org/apache/hadoop/hive/llap/cache/TestLowLevelLrfuCachePolicy.java
+index 923042d88c..a5cde68d4a 100644
+--- a/llap-server/src/test/org/apache/hadoop/hive/llap/cache/TestLowLevelLrfuCachePolicy.java
++++ b/llap-server/src/test/org/apache/hadoop/hive/llap/cache/TestLowLevelLrfuCachePolicy.java
+@@ -182,7 +182,7 @@ public void testLruExtreme() {
+   public void testPurge() {
+     final int HEAP_SIZE = 32;
+     Configuration conf = new Configuration();
+-    conf.setFloat(HiveConf.ConfVars.LLAP_LRFU_LAMBDA.varname, 0.2f);
++    conf.setFloat(HiveConf.ConfVars.LLAP_LRFU_LAMBDA.varname, 1f);
+     EvictionTracker et = new EvictionTracker();
+     LowLevelLrfuCachePolicy lrfu = new LowLevelLrfuCachePolicy(1, HEAP_SIZE, conf);
+     MetricsMock m = createMetricsMock();
+diff --git a/ql/src/java/org/apache/hadoop/hive/ql/io/orc/encoded/EncodedReaderImpl.java b/ql/src/java/org/apache/hadoop/hive/ql/io/orc/encoded/EncodedReaderImpl.java
+index 346ab5c8e7..b2d52cf4b6 100644
+--- a/ql/src/java/org/apache/hadoop/hive/ql/io/orc/encoded/EncodedReaderImpl.java
++++ b/ql/src/java/org/apache/hadoop/hive/ql/io/orc/encoded/EncodedReaderImpl.java
+@@ -297,6 +297,7 @@ public void readEncodedColumns(int stripeIx, StripeInformation stripe,
+       OrcProto.RowIndex[] indexes, List<OrcProto.ColumnEncoding> encodings,
+       List<OrcProto.Stream> streamList, boolean[] physicalFileIncludes, boolean[] rgs,
+       Consumer<OrcEncodedColumnBatch> consumer) throws IOException {
++    long startTime = System.nanoTime();
+     // Note: for now we don't have to setError here, caller will setError if we throw.
+     // We are also not supposed to call setDone, since we are only part of the operation.
+     long stripeOffset = stripe.getOffset();
+@@ -397,14 +398,17 @@ public void readEncodedColumns(int stripeIx, StripeInformation stripe,
+       } else {
+         LOG.warn("Nothing to read for stripe [" + stripe + "]");
+       }
++      LOG.info("Read encoded time first exit nothing to read? {}", System.nanoTime() - startTime);
+       return;
+     }
+ 
+     // 2. Now, read all of the ranges from cache or disk.
+     IdentityHashMap<ByteBuffer, Boolean> toRelease = new IdentityHashMap<>();
++    //This is reading data form HDFS or cache and building a read list out of it
++    long startTimeReadFromDiskAndCache = System.nanoTime();
+     MutateHelper toRead = getDataFromCacheAndDisk(
+         listToRead.get(), stripeOffset, hasFileId, toRelease);
+-
++    LOG.info("Time to getDataFromCacheAndDisk {}", System.nanoTime() -  startTimeReadFromDiskAndCache);
+ 
+     // 3. For uncompressed case, we need some special processing before read.
+     //    Basically, we are trying to create artificial, consistent ranges to cache, as there are
+@@ -412,8 +416,10 @@ public void readEncodedColumns(int stripeIx, StripeInformation stripe,
+     //    either cache buffers, or buffers allocated by us and not cached (if we are only reading
+     //    parts of the data for some ranges and don't want to cache it). Both are represented by
+     //    CacheChunks, so the list is just CacheChunk-s from that point on.
++    //This fn is creating a logical view to the cache as if data is uncompressed in orc file
++    long startTimeUncompressedRead = System.nanoTime();
+     DiskRangeList iter = preReadUncompressedStreams(stripeOffset, colCtxs, toRead, toRelease);
+-
++    LOG.info("Time to preReadUncompressedStreams {}", System.nanoTime() -  startTimeUncompressedRead);
+     // 4. Finally, decompress data, map per RG, and return to caller.
+     // We go by RG and not by column because that is how data is processed.
+     boolean hasError = true;
+@@ -526,6 +532,7 @@ public void readEncodedColumns(int stripeIx, StripeInformation stripe,
+             releaseEcbRefCountsOnError(ecb);
+           }
+         }
++        LOG.info("Read encoded stream before start decoding {}", System.nanoTime() - startTime);
+         try {
+           consumer.consumeData(ecb);
+           // After this, the non-initial refcounts are the responsibility of the consumer.
+@@ -571,6 +578,7 @@ public void readEncodedColumns(int stripeIx, StripeInformation stripe,
+         releaseInitialRefcounts(toRead.next);
+         // Release buffers as we are done with all the streams... also see toRelease comment.
+         releaseBuffers(toRelease.keySet(), true);
++        LOG.info("Read encoded stream total time  exit {}", System.nanoTime() - startTime);
+       } catch (Throwable t) {
+         if (!hasError) throw new IOException(t);
+         LOG.error("Error during the cleanup after another error; ignoring", t);
+@@ -1601,6 +1609,7 @@ private ProcCacheChunk addOneCompressionBuffer(BufferChunk current,
+ 
+     // TODO: we could remove extra copy for isUncompressed case by copying directly to cache.
+     // We need to consolidate 2 or more buffers into one to decompress.
++    //
+     ByteBuffer copy = allocateBuffer(chunkLength, compressed.isDirect());
+     toReleaseCopies.add(copy); // We will always release copies at the end.
+     int remaining = chunkLength - compressed.remaining();
+diff --git a/storage-api/src/java/org/apache/hadoop/hive/common/io/encoded/EncodedColumnBatch.java b/storage-api/src/java/org/apache/hadoop/hive/common/io/encoded/EncodedColumnBatch.java
+index 29a3b0f2f4..db858abf73 100644
+--- a/storage-api/src/java/org/apache/hadoop/hive/common/io/encoded/EncodedColumnBatch.java
++++ b/storage-api/src/java/org/apache/hadoop/hive/common/io/encoded/EncodedColumnBatch.java
+@@ -103,6 +103,7 @@ public String toString() {
+    */
+   protected boolean[] hasData;
+ 
++  //This seems to be part of a hot loop that might need to be optimized
+   public void reset() {
+     if (hasData != null) {
+       Arrays.fill(hasData, false);
+@@ -143,6 +144,7 @@ public int getTotalColCount() {
+     return columnData.length; // Includes the columns that have no data
+   }
+ 
++  //This seems to be part of a hot loop that might need to be optimized
+   protected void resetColumnArrays(int columnCount) {
+     if (hasData != null && columnCount == hasData.length) {
+       Arrays.fill(hasData, false);

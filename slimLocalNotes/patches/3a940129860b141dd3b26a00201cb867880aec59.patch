@@ -1,0 +1,115 @@
+commit 3a940129860b141dd3b26a00201cb867880aec59
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Fri Mar 22 09:40:54 2019 -0700
+
+    Adding some doc/logging for buddyAlloc
+    
+    Change-Id: I0b8994598fa27c20813f2220709396c6aac903fb
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+index aba024ff6b..c10e1de55c 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+@@ -57,7 +57,7 @@
+   private static final long MAX_DUMP_INTERVAL_NS = 300 * 1000000000L; // 5 minutes.
+   private final AtomicLong lastLog = new AtomicLong(-1);
+   private final LlapDaemonCacheMetrics metrics;
+-  private static final int MAX_DISCARD_ATTEMPTS = 10, LOG_DISCARD_ATTEMPTS = 5;
++  private static final int MAX_DISCARD_ATTEMPTS = 10, LOG_DISCARD_ATTEMPTS = 0;
+ 
+   // Config settings
+   private final int minAllocLog2, maxAllocLog2, arenaSizeLog2, maxArenas;
+@@ -258,7 +258,7 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+     int freeListIx = determineFreeListForAllocation(size);
+     int allocLog2 = freeListIx + minAllocLog2;
+     int allocationSize = 1 << allocLog2;
+-
++    //LlapIoImpl.LOG.info("Trace-AllocateMultiple [{}] Buffers with size [{}] total memory [{}]", dest.length, size, dest.length << allocLog2);
+     // If using async, we could also reserve one by one.
+     memoryManager.reserveMemory(dest.length << allocLog2, isStopped);
+     for (int i = 0; i < dest.length; ++i) {
+@@ -296,7 +296,8 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+     // But for now we will just retry. We will evict more each time.
+     int attempt = 0;
+     boolean isFailed = false;
+-    int memoryForceReleased = 0;
++    int memoryFreeListReleased = 0;
++    int memoryBruteForceReleased = 0;
+     try {
+       int discardFailed = 0;
+       while (true) {
+@@ -323,7 +324,7 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+         // First, try to use the blocks of half size in every arena.
+         if (doUseFreeListDiscard && freeListIx > 0) {
+           discardBlocksBasedOnFreeLists(freeListIx, startArenaIx, arenaCount, ctx);
+-          memoryForceReleased += ctx.memoryReleased;
++          memoryFreeListReleased += ctx.memoryReleased;
+           hasDiscardedAny = ctx.resultCount > 0;
+           destAllocIx = allocateFromDiscardResult(
+               dest, destAllocIx, freeListIx, allocationSize, ctx);
+@@ -333,7 +334,7 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+         if (doUseBruteDiscard) {
+           ctx.resetResults();
+           discardBlocksBruteForce(freeListIx, startArenaIx, arenaCount, ctx);
+-          memoryForceReleased += ctx.memoryReleased;
++          memoryBruteForceReleased += ctx.memoryReleased;
+           hasDiscardedAny = hasDiscardedAny || (ctx.resultCount > 0);
+           destAllocIx = allocateFromDiscardResult(
+               dest, destAllocIx, freeListIx, allocationSize, ctx);
+@@ -360,10 +361,10 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+         ++attempt;
+       }
+     } finally {
+-      memoryManager.releaseMemory(memoryForceReleased);
++      memoryManager.releaseMemory(memoryFreeListReleased + memoryBruteForceReleased);
+       if (!isFailed && attempt >= LOG_DISCARD_ATTEMPTS) {
+         LlapIoImpl.LOG.info("Allocation of " + dest.length + " buffers of size " + size + " took "
+-            + attempt + " attempts to free enough memory; force-released " + memoryForceReleased);
++            + attempt + " attempts to free enough memory; free list " + memoryFreeListReleased + " brutForce " + memoryBruteForceReleased);
+       }
+     }
+   }
+@@ -1521,6 +1522,12 @@ private static byte makeHeader(int freeListIx, boolean isInUse) {
+     return (byte)(((freeListIx + 1) << 1) | (isInUse ? 1 : 0));
+   }
+ 
++  /**
++   * Computes the smallest list index that fits the input size.
++   *
++   * @param size Allocation size
++   * @return the smallest index of the cell where the allocation can be satisfied
++   */
+   private int determineFreeListForAllocation(int size) {
+     int freeListIx = 31 - Integer.numberOfLeadingZeros(size);
+     if (size != (1 << freeListIx)) ++freeListIx; // not a power of two, add one more
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LlapAllocatorBuffer.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LlapAllocatorBuffer.java
+index 339335f88d..d1e7f1a2da 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LlapAllocatorBuffer.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LlapAllocatorBuffer.java
+@@ -337,6 +337,9 @@ public Boolean endDiscard() {
+     return result;
+   }
+ 
++  /**
++   * State is 64 bits used to represent | 24 bits header | 16 bits arena id | 19 bits ref counts |5 bits flags |
++   */
+   private static final class State {
+     public static final int
+         FLAG_MOVING =       0b00001, // Locked by someone to move or force-evict.
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheImpl.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheImpl.java
+index ce2a96edb0..359370f3c3 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheImpl.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheImpl.java
+@@ -298,6 +298,12 @@ private boolean lockBuffer(LlapDataBuffer buffer, boolean doNotifyPolicy) {
+     try {
+       for (int i = 0; i < ranges.length; ++i) {
+         LlapDataBuffer buffer = (LlapDataBuffer)buffers[i];
++        LlapIoImpl.LOG.info("Put file {}, buffer {}, MemoryUsage {}, offset {}, length {}",
++            fileKey,
++            buffer.toStringForCache(),
++            buffer.getMemoryUsage(),
++            ranges[i].getOffset(),
++            ranges[i].getLength());
+         if (LlapIoImpl.LOCKING_LOGGER.isTraceEnabled()) {
+           LlapIoImpl.LOCKING_LOGGER.trace("Locking {} at put time", buffer);
+         }

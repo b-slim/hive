@@ -1,0 +1,20 @@
+commit 60e100ae58d086becebb67596d592cf361a58862
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Fri Mar 22 19:01:23 2019 -0700
+
+    add debug dump allocator
+    
+    Change-Id: I4bc3fc071d72a17685db965dcbdff7755c9afd05
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+index a9335c2072..0d5c00c618 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+@@ -703,6 +703,7 @@ public void debugDumpShort(StringBuilder sb) {
+         "; unallocated arenas: ").append(unallocCount).append(
+         "; full arenas ").append(fullCount);
+     sb.append("\n");
++    sb.append("Alloc dump: \n" + debugDumpForOomInternal()  + "\n");
+   }
+ 
+   @Override

@@ -1,0 +1,99 @@
+commit c23d310a73a08cf3920327856f58bde5bfae118e
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Thu Mar 28 14:57:55 2019 -0700
+
+    version 2 adding simple evict block and then try evict by blocksize
+    
+    Change-Id: I94b49a45b7a6b31159f4af9ab8a96019446b7c16
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+index dd5d410e4e..0728f709ea 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+@@ -57,7 +57,7 @@
+   private static final long MAX_DUMP_INTERVAL_NS = 300 * 1000000000L; // 5 minutes.
+   private final AtomicLong lastLog = new AtomicLong(-1);
+   private final LlapDaemonCacheMetrics metrics;
+-  private static final int MAX_DISCARD_ATTEMPTS = 20, LOG_DISCARD_ATTEMPTS = 0;
++  private static final int MAX_DISCARD_ATTEMPTS = 25, LOG_DISCARD_ATTEMPTS = 0;
+ 
+   // Config settings
+   private final int minAllocLog2, maxAllocLog2, arenaSizeLog2, maxArenas;
+@@ -280,8 +280,8 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+     int prevAllocIx = 0;
+     int destAllocIx = 0;
+     int fastAttempt = 0;
+-    int forceEvictedBlocks = 0;
+     while (fastAttempt < MAX_DISCARD_ATTEMPTS) {
++      startArenaIx = (int)(threadId + fastAttempt  % arenaCount);
+       destAllocIx =
+           allocateFast(dest,
+               null,
+@@ -289,7 +289,7 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+               dest.length,
+               freeListIx,
+               allocationSize,
+-              (int) (threadId % arenaCount),
++              startArenaIx,
+               arenaCount);
+       metrics.incAllocatorFastAllocation((destAllocIx - prevAllocIx) * allocationSize);
+       if (destAllocIx == dest.length)
+@@ -318,15 +318,15 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+         if (destAllocIx == dest.length) return;
+       }
+ 
+-      if (fastAttempt > 10 && fastAttempt < 15) {
+-        memoryManager.reserveMemory(allocationSize * fastAttempt, isStopped);
+-        memoryManager.releaseMemory(allocationSize * fastAttempt);
+-      } else if (fastAttempt > 15) {
+-        memoryManager.evictNBlocks(allocationSize, dest.length - destAllocIx);
++      if (fastAttempt >= 5 && fastAttempt < 15) {
++        long evicted = memoryManager.evictMemory(allocationSize << (fastAttempt - 5));
++        metrics.incAllocatorFreeListEvictedBytes(evicted);
++      } else if (fastAttempt >= 15) {
++        long targetBlockSize = Math.min(maxAllocation, allocationSize << (fastAttempt - 15) / 2);
++        int nBlocks = memoryManager.evictNBlocks(targetBlockSize, dest.length - destAllocIx);
++        metrics.incAllocatorBruteForceEvictedBytes(nBlocks * targetBlockSize);
+       }
+-
+       fastAttempt++;
+-      metrics.incAllocatorBruteForceEvictedBytes(forceEvictedBlocks * allocationSize);
+       metrics.incrAllocationAttempt(1);
+     }
+ 
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheMemoryManager.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheMemoryManager.java
+index 6fb79faeb7..fdea903fc3 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheMemoryManager.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelCacheMemoryManager.java
+@@ -80,6 +80,14 @@ public int evictNBlocks(long blockSize, int n) {
+     return evicted;
+   }
+ 
++  @Override public long evictMemory(long memoryToEvict) {
++    long evicted = evictor.evictSomeBlocks(memoryToEvict);
++    if (evicted > 0) {
++      releaseMemory(evicted);
++    }
++    return evicted;
++  }
++
+   @VisibleForTesting
+   public boolean reserveMemory(final long memoryToReserve,
+       boolean waitForEviction, AtomicBoolean isStopped) {
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/MemoryManager.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/MemoryManager.java
+index e3064287f5..9261a36842 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/MemoryManager.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/MemoryManager.java
+@@ -66,4 +66,12 @@
+   default int evictNBlocks(long blockSize, int n) {
+     return 0;
+   }
++
++  /**
++   * @param memoryToEvict amount of memory in bytes to be evicted
++   * @return actual evicted amount
++   */
++  default long evictMemory(long memoryToEvict) {
++    return -1;
++  }
+ }

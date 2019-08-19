@@ -1,0 +1,21 @@
+commit 5be58322acd4de67574de1786c4bdaeef1fa13bb
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Tue Mar 26 19:05:17 2019 -0700
+
+    add the call to the cache content tracker
+    
+    Change-Id: Ia3fa71a457155ad58198b741e0d34f79aefc5c65
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/CacheContentsTracker.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/CacheContentsTracker.java
+index 6a361fa4fc..945a606aa6 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/CacheContentsTracker.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/CacheContentsTracker.java
+@@ -217,4 +217,8 @@ public void notifyEvicted(LlapCacheableBuffer buffer) {
+     evictionListener.notifyEvicted(buffer);
+     reportRemoved(buffer);
+   }
++
++  @Override public int evictNBlocks(long blockSize, int n) {
++    return realPolicy.evictNBlocks(blockSize, n);
++  }
+ }

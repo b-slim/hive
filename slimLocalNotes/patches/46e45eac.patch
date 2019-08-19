@@ -1,0 +1,74 @@
+commit 46e45eac26127ca1764b67ca52d1537e1c2e3151
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Tue Mar 26 18:58:14 2019 -0700
+
+    adding a strick failure if can not use the force evicted blocks
+    
+    Change-Id: I31b482e6768a70a37cb75d7262290e76a0513ea3
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+index 1c8f97bd6f..2c8440e87f 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+@@ -310,25 +310,26 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+         return;
+ 
+       forceEvictedBlocks += memoryManager.evictNBlocks(allocationSize, dest.length - destAllocIx);
+-      fastAttempt ++;
++      fastAttempt++;
+       metrics.incAllocatorBruteForceEvictedBytes(forceEvictedBlocks * allocationSize);
+       metrics.incrAllocationAttempt(1);
+     }
+ 
+-    if (forceEvictedBlocks > 0 ) //noinspection Duplicates
+-    {
+-      for (int i = 0; i < destAllocIx; ++i) {
+-        try {
+-          deallocate(dest[i]);
+-        } catch (Throwable t) {
+-          LlapIoImpl.LOG.info("Failed to deallocate after a partially successful allocate: " + dest[i]);
+-        }
++    for (int i = 0; i < destAllocIx; ++i) {
++      try {
++        deallocate(dest[i]);
++      } catch (Throwable t) {
++        LlapIoImpl.LOG.info("Failed to deallocate after a partially successful allocate: " + dest[i]);
+       }
++    }
++
++    if (dest.length - destAllocIx > 0) {
+       String msg = "Failed to allocate " + size + "; at " + destAllocIx + " out of "
+-          + dest.length + " (entire cache is fragmented and locked, or an internal issue)";
++          + dest.length + " (entire cache is fragmented and locked, or an internal issue) after: " + fastAttempt + " attempts";
+       logOomErrorMessage(msg);
+       throw new AllocatorOutOfMemoryException(msg);
+     }
++
+     // We called reserveMemory so we know that there's memory waiting for us somewhere.
+     // However, we have a class of rare race conditions related to the order of locking/checking of
+     // different allocation areas. Simple case - say we have 2 arenas, 256Kb available in arena 2.
+@@ -409,10 +410,10 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+               LlapIoImpl.LOG.info("Failed to deallocate after a partially successful allocate: " + dest[i]);
+             }
+           }
+-          String msg = "Failed to allocate " + size + "; at " + destAllocIx + " out of "
++          /*String msg = "Failed to allocate " + size + "; at " + destAllocIx + " out of "
+               + dest.length + " (entire cache is fragmented and locked, or an internal issue)";
+           logOomErrorMessage(msg);
+-          throw new AllocatorOutOfMemoryException(msg);
++          throw new AllocatorOutOfMemoryException(msg);*/
+         }
+         ++attempt;
+         metrics.incrAllocationAttempt(1);
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelLrfuCachePolicy.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelLrfuCachePolicy.java
+index 26909b93fb..681f283764 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelLrfuCachePolicy.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelLrfuCachePolicy.java
+@@ -346,7 +346,6 @@ private int evictNBlocksFromList(long blockSize, int n) {
+           evictionListener.notifyEvicted(nextCandidate);
+         }
+         nextCandidate = nextCandidate.prev;
+-
+       }
+     } finally {
+       listLock.unlock();

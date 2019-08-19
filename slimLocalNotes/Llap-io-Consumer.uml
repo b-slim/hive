@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Diagram>
+  <ID>JAVA</ID>
+  <OriginalElement>org.apache.hadoop.hive.ql.io.orc.encoded.Consumer</OriginalElement>
+  <nodes>
+    <node x="323.2536458333333" y="79.0">org.apache.hadoop.hive.llap.io.decode.ReadPipeline</node>
+    <node x="29.229166666666657" y="336.0">org.apache.hadoop.hive.llap.io.encoded.OrcEncodedDataReader</node>
+    <node x="435.24322916666665" y="257.0">org.apache.hadoop.hive.llap.io.api.impl.LlapInputFormat</node>
+    <node x="228.80208333333331" y="514.0">org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl</node>
+    <node x="395.8265625" y="178.0">org.apache.hadoop.hive.llap.io.api.impl.LlapRecordReader</node>
+    <node x="47.13541666666666" y="178.0">org.apache.hadoop.hive.llap.io.decode.EncodedDataConsumer</node>
+    <node x="192.25364583333328" y="79.0">org.apache.hadoop.hive.ql.io.orc.encoded.Consumer</node>
+    <node x="154.12864583333334" y="415.0">org.apache.hadoop.hive.llap.io.decode.OrcColumnVectorProducer</node>
+    <node x="27.38541666666663" y="0.0">org.apache.hadoop.hive.llap.ConsumerFeedback</node>
+    <node x="61.59374999999997" y="257.0">org.apache.hadoop.hive.llap.io.decode.OrcEncodedDataConsumer</node>
+  </nodes>
+  <notes />
+  <edges>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.OrcEncodedDataConsumer" target="org.apache.hadoop.hive.llap.io.decode.EncodedDataConsumer">
+      <point x="26.875" y="-14.5" />
+      <point x="195.96874999999997" y="237.0" />
+      <point x="207.96874999999997" y="237.0" />
+      <point x="64.33333333333331" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.OrcEncodedDataConsumer" target="org.apache.hadoop.hive.llap.ConsumerFeedback">
+      <point x="-80.625" y="-14.5" />
+      <point x="88.46874999999997" y="227.0" />
+      <point x="36.63541666666666" y="227.0" />
+      <point x="36.63541666666666" y="59.0" />
+      <point x="69.63541666666663" y="59.0" />
+      <point x="-42.25" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.api.impl.LlapRecordReader" target="org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl">
+      <point x="-52.666666666666686" y="14.5" />
+      <point x="422.48281249999997" y="474.0" />
+      <point x="303.7395833333333" y="474.0" />
+      <point x="20.4375" y="-14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.encoded.OrcEncodedDataReader" target="org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl">
+      <point x="-64.66666666666669" y="14.5" />
+      <point x="61.56249999999997" y="395.0" />
+      <point x="105.6354166666666" y="395.0" />
+      <point x="105.6354166666666" y="474.0" />
+      <point x="262.8645833333333" y="474.0" />
+      <point x="-20.4375" y="-14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.encoded.OrcEncodedDataReader" target="org.apache.hadoop.hive.llap.ConsumerFeedback">
+      <point x="-64.66666666666669" y="-14.5" />
+      <point x="61.56249999999997" y="306.0" />
+      <point x="25.635416666666657" y="306.0" />
+      <point x="25.635416666666657" y="49.0" />
+      <point x="41.46874999999997" y="49.0" />
+      <point x="-70.41666666666666" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.OrcColumnVectorProducer" target="org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl">
+      <point x="53.5" y="14.5" />
+      <point x="314.62864583333334" y="464.0" />
+      <point x="290.1145833333333" y="464.0" />
+      <point x="6.8125" y="-14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl" target="org.apache.hadoop.hive.llap.io.api.impl.LlapInputFormat">
+      <point x="47.6875" y="-14.5" />
+      <point x="330.9895833333333" y="494.0" />
+      <point x="511.82291666666663" y="494.0" />
+      <point x="511.82291666666663" y="316.0" />
+      <point x="546.2432291666667" y="316.0" />
+      <point x="37.0" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.api.impl.LlapRecordReader" target="org.apache.hadoop.hive.llap.io.decode.ReadPipeline">
+      <point x="0.0" y="-14.5" />
+      <point x="474.8265625" y="158.0" />
+      <point x="427.4203125" y="158.0" />
+      <point x="41.666666666666686" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.api.impl.LlapRecordReader" target="org.apache.hadoop.hive.ql.io.orc.encoded.Consumer">
+      <point x="-52.666666666666686" y="-14.5" />
+      <point x="422.1598958333333" y="138.0" />
+      <point x="294.0036458333333" y="138.0" />
+      <point x="46.25" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.EncodedDataConsumer" target="org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl">
+      <point x="-64.33333333333331" y="14.5" />
+      <point x="79.30208333333334" y="237.0" />
+      <point x="0.0" y="237.0" />
+      <point x="0.0" y="494.0" />
+      <point x="235.61458333333331" y="494.0" />
+      <point x="-47.6875" y="-14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.api.impl.LlapInputFormat" target="org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl">
+      <point x="-37.0" y="14.5" />
+      <point x="472.24322916666665" y="316.0" />
+      <point x="500.82291666666663" y="316.0" />
+      <point x="500.82291666666663" y="484.0" />
+      <point x="317.3645833333333" y="484.0" />
+      <point x="34.0625" y="-14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.OrcColumnVectorProducer" target="org.apache.hadoop.hive.llap.io.encoded.OrcEncodedDataReader">
+      <point x="-53.5" y="-14.5" />
+      <point x="207.62864583333334" y="395.0" />
+      <point x="190.89583333333334" y="395.0" />
+      <point x="64.66666666666669" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.EncodedDataConsumer" target="org.apache.hadoop.hive.llap.ConsumerFeedback">
+      <point x="-80.41666666666666" y="-14.5" />
+      <point x="63.21875" y="148.0" />
+      <point x="90.39947916666662" y="148.0" />
+      <point x="90.39947916666662" y="49.0" />
+      <point x="97.80208333333329" y="49.0" />
+      <point x="-14.083333333333343" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.OrcColumnVectorProducer" target="org.apache.hadoop.hive.llap.io.decode.OrcEncodedDataConsumer">
+      <point x="-17.83333333333337" y="-14.5" />
+      <point x="243.29531249999997" y="385.0" />
+      <point x="277.8020833333333" y="385.0" />
+      <point x="277.8020833333333" y="316.0" />
+      <point x="212.09374999999997" y="316.0" />
+      <point x="43.0" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.api.impl.LlapRecordReader" target="org.apache.hadoop.hive.llap.ConsumerFeedback">
+      <point x="52.666666666666686" y="-14.5" />
+      <point x="527.4932291666667" y="158.0" />
+      <point x="493.33697916666665" y="158.0" />
+      <point x="493.33697916666665" y="49.0" />
+      <point x="182.3020833333333" y="49.0" />
+      <point x="70.41666666666666" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.EncodedDataConsumer" target="org.apache.hadoop.hive.llap.io.decode.ReadPipeline">
+      <point x="80.41666666666666" y="-14.5" />
+      <point x="224.05208333333331" y="158.0" />
+      <point x="344.08697916666665" y="158.0" />
+      <point x="-41.666666666666686" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.OrcEncodedDataConsumer" target="org.apache.hadoop.hive.ql.io.orc.encoded.Consumer">
+      <point x="80.625" y="-14.5" />
+      <point x="249.71874999999997" y="237.0" />
+      <point x="269.36458333333326" y="237.0" />
+      <point x="269.36458333333326" y="148.0" />
+      <point x="257.0036458333333" y="148.0" />
+      <point x="9.25" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.OrcColumnVectorProducer" target="org.apache.hadoop.hive.llap.io.decode.ReadPipeline">
+      <point x="89.16666666666663" y="-14.5" />
+      <point x="350.29531249999997" y="395.0" />
+      <point x="361.83697916666665" y="395.0" />
+      <point x="361.83697916666665" y="158.0" />
+      <point x="385.7536458333333" y="158.0" />
+      <point x="0.0" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.OrcColumnVectorProducer" target="org.apache.hadoop.hive.ql.io.orc.encoded.Consumer">
+      <point x="53.5" y="-14.5" />
+      <point x="314.62864583333334" y="395.0" />
+      <point x="316.78124999999994" y="395.0" />
+      <point x="316.78124999999994" y="148.0" />
+      <point x="275.5036458333333" y="148.0" />
+      <point x="27.75" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.api.impl.LlapRecordReader" target="org.apache.hadoop.hive.llap.io.api.impl.LlapInputFormat">
+      <point x="52.666666666666686" y="14.5" />
+      <point x="527.4932291666667" y="237.0" />
+      <point x="546.2432291666667" y="237.0" />
+      <point x="37.0" y="-14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.EncodedDataConsumer" target="org.apache.hadoop.hive.ql.io.orc.encoded.Consumer">
+      <point x="48.25" y="-14.5" />
+      <point x="191.88541666666666" y="148.0" />
+      <point x="238.50364583333328" y="148.0" />
+      <point x="-9.25" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.OrcEncodedDataConsumer" target="org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl">
+      <point x="-86.0" y="14.5" />
+      <point x="83.09374999999997" y="316.0" />
+      <point x="18.729166666666657" y="316.0" />
+      <point x="18.729166666666657" y="484.0" />
+      <point x="249.23958333333331" y="484.0" />
+      <point x="-34.0625" y="-14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.decode.ReadPipeline" target="org.apache.hadoop.hive.llap.ConsumerFeedback">
+      <point x="0.0" y="-14.5" />
+      <point x="385.7536458333333" y="59.0" />
+      <point x="154.13541666666666" y="59.0" />
+      <point x="42.25000000000003" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.api.impl.LlapInputFormat" target="org.apache.hadoop.hive.llap.io.api.impl.LlapRecordReader">
+      <point x="-37.0" y="-14.5" />
+      <point x="472.24322916666665" y="237.0" />
+      <point x="474.8265625" y="237.0" />
+      <point x="0.0" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.encoded.OrcEncodedDataReader" target="org.apache.hadoop.hive.llap.io.decode.OrcEncodedDataConsumer">
+      <point x="64.66666666666669" y="-14.5" />
+      <point x="190.89583333333334" y="316.0" />
+      <point x="169.09374999999997" y="316.0" />
+      <point x="0.0" y="14.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl" target="org.apache.hadoop.hive.llap.io.decode.OrcColumnVectorProducer">
+      <point x="-6.8125" y="-14.5" />
+      <point x="276.4895833333333" y="464.0" />
+      <point x="207.62864583333334" y="464.0" />
+      <point x="-53.5" y="14.5" />
+    </edge>
+  </edges>
+  <settings layout="Hierarchic Group" zoom="0.8982418753329782" x="841.5" y="928.5" />
+  <SelectedNodes />
+  <Categories />
+  <SCOPE>Production</SCOPE>
+  <VISIBILITY>public</VISIBILITY>
+</Diagram>
+

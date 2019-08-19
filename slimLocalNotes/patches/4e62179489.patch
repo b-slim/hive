@@ -1,0 +1,92 @@
+commit 4e62179489de6f07ac3f7ccb421cb090cb842e66
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Fri Mar 22 09:45:35 2019 -0700
+
+    Fix LRFU purge
+    
+    Change-Id: I1d674caede5245c1e2c12c52413adf0983961c28
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelLrfuCachePolicy.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelLrfuCachePolicy.java
+index a7f8edc3b5..20f47ee0ac 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelLrfuCachePolicy.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/LowLevelLrfuCachePolicy.java
+@@ -187,7 +187,7 @@ public long purge() {
+     try {
+       LlapCacheableBuffer current = oldTail = listTail;
+       while (current != null) {
+-        boolean canEvict = LlapCacheableBuffer.INVALIDATE_OK != current.invalidate();
++        boolean canEvict = LlapCacheableBuffer.INVALIDATE_OK == current.invalidate();
+         current.indexInHeap = LlapCacheableBuffer.NOT_IN_CACHE;
+         if (canEvict) {
+           current = current.prev;
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/MemoryManager.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/MemoryManager.java
+index ee641d65fd..3c7ce273d0 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/MemoryManager.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/MemoryManager.java
+@@ -18,11 +18,43 @@
+ 
+ package org.apache.hadoop.hive.llap.cache;
+ 
+-
+ import java.util.concurrent.atomic.AtomicBoolean;
+ 
++/**
++ * Memory Manager is an accountant over a fixed size of memory.
++ * It does is the following.
++ * 1 - tracks the amount of memory (bytes) reserved out of a given maximum size to be shared between IO Threads.
++ * 2 - when a reservation can not be fulfilled form the current free space it has to notify Evictor to free up some
++ * space.
++ * <p>
++ * Note that it does not know about the actual shape, content or owners of memory, all it cares about is bytes usage.
++ */
+ public interface MemoryManager extends LlapOomDebugDump {
++
++  /**
++   * Signals to the Memory manager the release of some memory bytes that are free to be used.
++   *
++   * @param memUsage amount of memory bytes that are released to be added to the ledger as free.
++   */
+   void releaseMemory(long memUsage);
++
++  /**
++   * Sets the amount of bytes that the memory manager is managing.
++   *
++   * @param maxSize total amount of available bytes to be allocated.
++   */
+   void updateMaxSize(long maxSize);
++
++  /**
++   * Reserves some amount of bytes within the managed pool of memory.
++   * <p>
++   * Callers expect that the memory manager will always fulfill the request by notifying the Evictor about how much
++   * need to be evicted to accommodate the reserve request.
++   * Note that this method will block until reservation is fulfilled.
++   *
++   * @param memoryToReserve Amount of bytes to reserve.
++   * @param isStopped       Caller state to indicate if it is still running while the memory manager is trying to
++   *                        allocate the space.
++   */
+   void reserveMemory(long memoryToReserve, AtomicBoolean isStopped);
+ }
+diff --git a/llap-server/src/test/org/apache/hadoop/hive/llap/cache/TestLowLevelLrfuCachePolicy.java b/llap-server/src/test/org/apache/hadoop/hive/llap/cache/TestLowLevelLrfuCachePolicy.java
+index 923042d88c..7f725a0584 100644
+--- a/llap-server/src/test/org/apache/hadoop/hive/llap/cache/TestLowLevelLrfuCachePolicy.java
++++ b/llap-server/src/test/org/apache/hadoop/hive/llap/cache/TestLowLevelLrfuCachePolicy.java
+@@ -39,6 +39,7 @@
+ import org.apache.hadoop.hive.conf.HiveConf;
+ import org.apache.hadoop.hive.llap.cache.LowLevelCache.Priority;
+ import org.apache.hadoop.hive.llap.metrics.LlapDaemonCacheMetrics;
++import org.junit.Assert;
+ import org.junit.Assume;
+ import org.junit.Test;
+ import org.mockito.invocation.InvocationOnMock;
+@@ -205,7 +206,8 @@ public void testPurge() {
+           purge.add(buffer);
+         }
+       }
+-      lrfu.purge();
++      long sizeOfPurge = lrfu.purge();
++      Assert.assertEquals(purge.size(), sizeOfPurge);
+       for (LlapDataBuffer buffer : purge) {
+         assertTrue(buffer + " " + testSize, buffer.isInvalid());
+         mm.releaseMemory(buffer.getMemoryUsage());

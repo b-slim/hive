@@ -1,0 +1,29 @@
+kubectl get pods --all-namespaces
+
+ kubectl edit compute -n compute-1562478051-lcjz  -l perf-tpcds
+
+ kubectl get computes --all-namespaces
+
+
+
+ Logs(compute-1562478051-lcjz/query-executor-0-0:query-executor
+
+
+ `stern -n compute-1562478051-lcjz -l computeName=perf-tpcds --tail 0 --since 1m`
+
+
+ kubectl logs -f -n <namespace> <pod-name> -c <container-name>
+
+ kubectl logs query-executor-0-0 -n compute-1562478051-lcjz -c query-executor -f --tail=0
+
+ stern -n compute-1562478051-lcjz -l computeName=perf-tpcds --tail 0 --since 1m
+
+
+kubectl logs hiveserver2-1 -n compute-1562885689-vfh9 -c hiveserver2 -f --tail=0 
+
+
+hive_20190718215716_b7934df4-3730-419a-bd85-9650d1235d72
+
+
+kubectl port-forward hiveserver2-0 -n compute-1562885689-vfh9 50505:50505
+

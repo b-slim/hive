@@ -1,0 +1,21 @@
+commit 9d29924029163b83dd699b8d4e1d848cdc4fa4c6
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Sat Mar 23 19:35:33 2019 -0700
+
+    fix the incr for allocation sizes
+    
+    Change-Id: I17c662878efad8f50f01dcff08e802de7a7915cc
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+index 0d5c00c618..f91c220a87 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+@@ -261,7 +261,7 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+     //LlapIoImpl.LOG.info("Trace-AllocateMultiple [{}] Buffers with size [{}] total memory [{}]", dest.length, size, dest.length << allocLog2);
+     // If using async, we could also reserve one by one.
+     memoryManager.reserveMemory(dest.length << allocLog2, isStopped);
+-    metrics.incAllocatorTotalBytes(size);
++    metrics.incAllocatorTotalBytes(dest.length << allocLog2);
+     for (int i = 0; i < dest.length; ++i) {
+       if (dest[i] != null) continue;
+       // Note: this is backward compat only. Should be removed with createUnallocated.

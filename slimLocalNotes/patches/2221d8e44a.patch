@@ -1,0 +1,24 @@
+commit 2221d8e44a2c6e9b3ca06f7046c000e663dff1a8
+Author: Slim Bouguerra <bslim@apache.org>
+Date:   Mon Apr 8 14:30:14 2019 -0700
+
+    count the attempts number one only
+    
+    Change-Id: Ibb5b7aba257bd4fb1bcdd0c84ac1338e590c61d1
+
+diff --git a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+index 753e61a986..f1cbbf5f50 100644
+--- a/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
++++ b/llap-server/src/java/org/apache/hadoop/hive/llap/cache/BuddyAllocator.java
+@@ -293,8 +293,10 @@ public void allocateMultiple(MemoryBuffer[] dest, int size, BufferObjectFactory
+ 
+     // The way to get around this is by retrying and force evicting if needed.
+ 
+-    metrics.incrAllocationAttempt(1);
+     while (attempt < MAX_DISCARD_ATTEMPTS) {
++      if (attempt == 1) {
++        metrics.incrAllocationAttempt(1); // to be removed this is used to track number of failed
++      }
+       startArenaIx = (int)((threadId + attempt) % arenaCount);
+       destAllocIx =
+           allocateFast(dest,

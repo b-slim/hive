@@ -1,0 +1,564 @@
+Modes:  Jenkins  Robot  ResetRepo  UnitTests 
+Processing: /data/hiveptest/logs/PreCommit-HIVE-Build-14285/patches/PreCommit-HIVE-Build-14285.patch
+Patch file /data/hiveptest/logs/PreCommit-HIVE-Build-14285/patches/PreCommit-HIVE-Build-14285.patch copied to /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus
+
+
+============================================================================
+============================================================================
+                        Confirming git environment
+============================================================================
+============================================================================
+
+
+HEAD is now at 39ed52c HIVE-20635: VectorizedOrcAcidRowBatchReader doesn't filter delete events for original files (Saurabh Seth via Eugene Koifman)
+Removing accumulo-handler/target/
+Removing beeline/target/
+Removing classification/target/
+Removing cli/target/
+Removing common/src/gen/
+Removing common/target/
+Removing contrib/target/
+Removing druid-handler/target/
+Removing hbase-handler/target/
+Removing hcatalog/core/target/
+Removing hcatalog/hcatalog-pig-adapter/target/
+Removing hcatalog/server-extensions/target/
+Removing hcatalog/streaming/target/
+Removing hcatalog/target/
+Removing hcatalog/webhcat/java-client/target/
+Removing hcatalog/webhcat/svr/target/
+Removing hplsql/target/
+Removing itests/custom-serde/target/
+Removing itests/custom-udfs/target/
+Removing itests/custom-udfs/udf-classloader-udf1/target/
+Removing itests/custom-udfs/udf-classloader-udf2/target/
+Removing itests/custom-udfs/udf-classloader-util/target/
+Removing itests/custom-udfs/udf-vectorized-badexample/target/
+Removing itests/hcatalog-unit/target/
+Removing itests/hive-blobstore/target/
+Removing itests/hive-jmh/target/
+Removing itests/hive-minikdc/target/
+Removing itests/hive-unit-hadoop2/target/
+Removing itests/hive-unit/target/
+Removing itests/qtest-accumulo/target/
+Removing itests/qtest-druid/target/
+Removing itests/qtest-spark/target/
+Removing itests/qtest/target/
+Removing itests/target/
+Removing itests/test-serde/target/
+Removing itests/thirdparty/
+Removing itests/util/target/
+Removing jdbc-handler/target/
+Removing jdbc/target/
+Removing kafka-handler/target/
+Removing kryo-registrator/target/
+Removing llap-client/target/
+Removing llap-common/target/
+Removing llap-ext-client/target/
+Removing llap-server/target/
+Removing llap-tez/target/
+Removing metastore/target/
+Removing packaging/target/
+Removing patchprocess/
+Removing ql/dependency-reduced-pom.xml
+Removing ql/target/
+Removing serde/target/
+Removing service-rpc/target/
+Removing service/target/
+Removing shims/0.23/target/
+Removing shims/aggregator/target/
+Removing shims/common/target/
+Removing shims/scheduler/target/
+Removing shims/target/
+Removing spark-client/target/
+Removing standalone-metastore/metastore-common/src/gen/version/
+Removing standalone-metastore/metastore-common/target/
+Removing standalone-metastore/metastore-server/target/
+Removing standalone-metastore/metastore-tools/metastore-benchmarks/target/
+Removing standalone-metastore/metastore-tools/target/
+Removing standalone-metastore/metastore-tools/tools-common/target/
+Removing standalone-metastore/target/
+Removing storage-api/target/
+Removing streaming/target/
+Removing target/
+Removing testutils/target/
+Removing upgrade-acid/pre-upgrade/target/
+Removing upgrade-acid/target/
+Removing vector-code-gen/target/
+Your branch is up-to-date with 'origin/master'.
+First, rewinding head to replay your work on top of it...
+Fast-forwarded master to 3068f03a22b95cdccc0a16941b8770ed02a0656d.
+Your branch is up-to-date with 'origin/master'.
+HEAD is now at 3068f03 HIVE-20706: external_jdbc_table2.q failing intermittently (Jesus Camacho Rodriguez)
+Testing /data/hiveptest/logs/PreCommit-HIVE-Build-14285/patches/PreCommit-HIVE-Build-14285.patch patch on master.
+
+
+============================================================================
+============================================================================
+                         Determining needed tests
+============================================================================
+============================================================================
+
+
+(Depending upon input maxSize and number of plug-ins, this may take a while)
+
+
+============================================================================
+============================================================================
+                     Checking for @author tags: patch
+============================================================================
+============================================================================
+
+
+There appear to be 0 @author tags in the patch.
+
+
+============================================================================
+============================================================================
+Determining Maven Dependency Order (downloading dependencies in the process)
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285
+mvn -q exec:exec -Dexec.executable=pwd -Dexec.args='' > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/maven-branch-dirlist-root.txt 2>&1
+Elapsed:   0m 38s
+
+
+============================================================================
+============================================================================
+                           maven install: master
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285
+mvn -DskipTests -Pitests -fae clean install -DskipTests=true -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dfindbugs.skip=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-mvninstall-root.txt 2>&1
+Elapsed:   8m 20s
+
+
+============================================================================
+============================================================================
+                       master compilation: pre-patch
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/itests/qtest-druid
+mvn -DskipTests -Pitests clean test-compile -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-compile-itests_qtest-druid.txt 2>&1
+Elapsed:   0m 12s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/kafka-handler
+mvn -DskipTests -Pitests clean test-compile -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-compile-kafka-handler.txt 2>&1
+Elapsed:   0m 15s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/ql
+mvn -DskipTests -Pitests clean test-compile -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-compile-ql.txt 2>&1
+Elapsed:   1m  3s
+
+
+============================================================================
+============================================================================
+                            checkstyle: master
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/itests/qtest-druid
+mvn checkstyle:checkstyle -Dcheckstyle.consoleOutput=true -DskipTests -Pitests -Ptest-patch > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/maven-branch-checkstyle-itests_qtest-druid.txt 2>&1
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/kafka-handler
+mvn checkstyle:checkstyle -Dcheckstyle.consoleOutput=true -DskipTests -Pitests -Ptest-patch > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/maven-branch-checkstyle-kafka-handler.txt 2>&1
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/ql
+mvn checkstyle:checkstyle -Dcheckstyle.consoleOutput=true -DskipTests -Pitests -Ptest-patch > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/maven-branch-checkstyle-ql.txt 2>&1
+
+
+============================================================================
+============================================================================
+                        findbugs detection: master
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/itests/qtest-druid
+mvn -DskipTests -Pitests,findbugs test-compile findbugs:findbugs -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-findbugs-itests_qtest-druid.txt 2>&1
+Elapsed:   0m 17s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/kafka-handler
+mvn -DskipTests -Pitests,findbugs test-compile findbugs:findbugs -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-findbugs-kafka-handler.txt 2>&1
+Elapsed:   0m 22s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/ql
+mvn -DskipTests -Pitests,findbugs test-compile findbugs:findbugs -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-findbugs-ql.txt 2>&1
+Elapsed:   3m 47s
+
+itests/qtest-druid in master has 6 extant Findbugs warnings.
+
+
+kafka-handler in master has 1 extant Findbugs warnings.
+
+
+ql in master has 2320 extant Findbugs warnings.
+
+
+
+============================================================================
+============================================================================
+                 Pre-patch javadoc verification on master
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/itests/qtest-druid
+mvn -DskipTests -Pitests,javadoc clean javadoc:javadoc -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-javadoc-itests_qtest-druid.txt 2>&1
+Elapsed:   0m  9s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/kafka-handler
+mvn -DskipTests -Pitests,javadoc clean javadoc:javadoc -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-javadoc-kafka-handler.txt 2>&1
+Elapsed:   0m 11s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/ql
+mvn -DskipTests -Pitests,javadoc clean javadoc:javadoc -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-javadoc-ql.txt 2>&1
+Elapsed:   0m 59s
+
+
+============================================================================
+============================================================================
+                         Cleaning the source tree
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/itests/qtest-druid
+mvn -DskipTests -Pitests clean -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-distclean-itests_qtest-druid.txt 2>&1
+Elapsed:   0m  6s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/kafka-handler
+mvn -DskipTests -Pitests clean -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-distclean-kafka-handler.txt 2>&1
+Elapsed:   0m  5s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/ql
+mvn -DskipTests -Pitests clean -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-distclean-ql.txt 2>&1
+Elapsed:   0m  5s
+
+
+============================================================================
+============================================================================
+                         Applying patch to master
+============================================================================
+============================================================================
+
+
+Applying the patch:
+Sun Oct  7 01:17:52 UTC 2018
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285
+git apply --binary -v --stat --apply -p0 /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch
+/data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch:37: trailing whitespace.
+## Usage 
+/data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch:43: trailing whitespace.
+(`timestamp` timestamp , `page` string,  `newPage` boolean, 
+/data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch:50: trailing whitespace.
+Both properties are mandatory.  
+/data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch:55: trailing whitespace.
+``` 
+/data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch:67: trailing whitespace.
+#### Table definition 
+Applied patch itests/qtest-druid/pom.xml cleanly.
+Applied patch kafka-handler/README.md cleanly.
+Applied patch kafka-handler/pom.xml cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/GenericKafkaSerDe.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/HiveKafkaProducer.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaPullerInputFormat.java => kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaInputFormat.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaPullerInputSplit.java => kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaInputSplit.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaJsonSerDe.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaOutputFormat.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaRecordIterator.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaPullerRecordReader.java => kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaRecordReader.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaScanTrimmer.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaSerDe.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaStorageHandler.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaStreamingUtils.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaTableProperties.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaUtils.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaRecordWritable.java => kafka-handler/src/java/org/apache/hadoop/hive/kafka/KafkaWritable.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/MetadataColumn.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/RetryUtils.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/SimpleKafkaWriter.java cleanly.
+Applied patch kafka-handler/src/java/org/apache/hadoop/hive/kafka/TransactionalKafkaWriter.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/HiveKafkaProducerTest.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/KafkaBrokerResource.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/KafkaInputSplitTest.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/KafkaPullerInputSplitTest.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/KafkaRecordIteratorTest.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/KafkaScanTrimmerTest.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/KafkaStorageHandlerTest.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/KafkaStreamingUtilsTest.java => kafka-handler/src/test/org/apache/hadoop/hive/kafka/KafkaUtilsTest.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/KafkaRecordWritableTest.java => kafka-handler/src/test/org/apache/hadoop/hive/kafka/KafkaWritableTest.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/SimpleKafkaWriterTest.java cleanly.
+Applied patch kafka-handler/src/test/org/apache/hadoop/hive/kafka/TransactionalKafkaWriterTest.java cleanly.
+Applied patch ql/src/test/queries/clientpositive/kafka_storage_handler.q cleanly.
+Applied patch ql/src/test/results/clientpositive/druid/kafka_storage_handler.q.out cleanly.
+warning: squelched 34 whitespace errors
+warning: 39 lines add whitespace errors.
+ itests/qtest-druid/pom.xml                         |    7 
+ kafka-handler/README.md                            |  223 ++++++++++++
+ kafka-handler/pom.xml                              |   28 +-
+ .../hadoop/hive/kafka/GenericKafkaSerDe.java       |  162 ---------
+ .../hadoop/hive/kafka/HiveKafkaProducer.java       |  253 ++++++++++++++
+ .../apache/hadoop/hive/kafka/KafkaInputFormat.java |   57 ++-
+ .../apache/hadoop/hive/kafka/KafkaInputSplit.java  |   38 +-
+ .../apache/hadoop/hive/kafka/KafkaJsonSerDe.java   |    2 
+ .../hadoop/hive/kafka/KafkaOutputFormat.java       |  118 ++++++
+ .../hadoop/hive/kafka/KafkaRecordIterator.java     |   73 +++-
+ .../hadoop/hive/kafka/KafkaRecordReader.java       |   38 +-
+ .../apache/hadoop/hive/kafka/KafkaScanTrimmer.java |   77 ++--
+ .../org/apache/hadoop/hive/kafka/KafkaSerDe.java   |  367 ++++++++++++++++++++
+ .../hadoop/hive/kafka/KafkaStorageHandler.java     |  303 ++++++++++++++---
+ .../hadoop/hive/kafka/KafkaStreamingUtils.java     |  255 --------------
+ .../hadoop/hive/kafka/KafkaTableProperties.java    |   83 +++++
+ .../org/apache/hadoop/hive/kafka/KafkaUtils.java   |  248 ++++++++++++++
+ .../apache/hadoop/hive/kafka/KafkaWritable.java    |   65 ++--
+ .../apache/hadoop/hive/kafka/MetadataColumn.java   |  118 ++++++
+ .../org/apache/hadoop/hive/kafka/RetryUtils.java   |  165 +++++++++
+ .../hadoop/hive/kafka/SimpleKafkaWriter.java       |  197 +++++++++++
+ .../hive/kafka/TransactionalKafkaWriter.java       |  361 ++++++++++++++++++++
+ .../hadoop/hive/kafka/HiveKafkaProducerTest.java   |  180 ++++++++++
+ .../hadoop/hive/kafka/KafkaBrokerResource.java     |  100 +++++
+ .../hadoop/hive/kafka/KafkaInputSplitTest.java     |  126 +++++++
+ .../hive/kafka/KafkaPullerInputSplitTest.java      |  131 -------
+ .../hadoop/hive/kafka/KafkaRecordIteratorTest.java |  244 +++++++------
+ .../hadoop/hive/kafka/KafkaScanTrimmerTest.java    |   46 +--
+ .../hadoop/hive/kafka/KafkaStorageHandlerTest.java |  142 ++++++++
+ .../apache/hadoop/hive/kafka/KafkaUtilsTest.java   |   51 ++-
+ .../hadoop/hive/kafka/KafkaWritableTest.java       |   44 +-
+ .../hadoop/hive/kafka/SimpleKafkaWriterTest.java   |  194 +++++++++++
+ .../hive/kafka/TransactionalKafkaWriterTest.java   |  243 +++++++++++++
+ .../queries/clientpositive/kafka_storage_handler.q |   52 +++
+ .../druid/kafka_storage_handler.q.out              |  226 ++++++++++++
+ 35 files changed, 4084 insertions(+), 933 deletions(-)
+
+
+============================================================================
+============================================================================
+Determining Maven Dependency Order (downloading dependencies in the process)
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285
+mvn -q exec:exec -Dexec.executable=pwd -Dexec.args='' > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/maven-patch-dirlist-root.txt 2>&1
+Elapsed:   0m 10s
+
+
+============================================================================
+============================================================================
+                           maven install: patch
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/itests/qtest-druid
+mvn -DskipTests -Pitests -fae clean install -DskipTests=true -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dfindbugs.skip=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-mvninstall-itests_qtest-druid.txt 2>&1
+Elapsed:   0m 34s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/kafka-handler
+mvn -DskipTests -Pitests -fae clean install -DskipTests=true -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dfindbugs.skip=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-mvninstall-kafka-handler.txt 2>&1
+Elapsed:   0m 17s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/ql
+mvn -DskipTests -Pitests -fae clean install -DskipTests=true -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dfindbugs.skip=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-mvninstall-ql.txt 2>&1
+Elapsed:   1m 25s
+
+
+============================================================================
+============================================================================
+                         master compilation: patch
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/itests/qtest-druid
+mvn -DskipTests -Pitests clean test-compile -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-compile-itests_qtest-druid.txt 2>&1
+Elapsed:   0m 12s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/kafka-handler
+mvn -DskipTests -Pitests clean test-compile -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-compile-kafka-handler.txt 2>&1
+Elapsed:   0m 15s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/ql
+mvn -DskipTests -Pitests clean test-compile -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-compile-ql.txt 2>&1
+Elapsed:   1m  1s
+
+
+============================================================================
+============================================================================
+                             checkstyle: patch
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/itests/qtest-druid
+mvn checkstyle:checkstyle -Dcheckstyle.consoleOutput=true -DskipTests -Pitests -Ptest-patch > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/maven-patch-checkstyle-itests_qtest-druid.txt 2>&1
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/kafka-handler
+mvn checkstyle:checkstyle -Dcheckstyle.consoleOutput=true -DskipTests -Pitests -Ptest-patch > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/maven-patch-checkstyle-kafka-handler.txt 2>&1
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/ql
+mvn checkstyle:checkstyle -Dcheckstyle.consoleOutput=true -DskipTests -Pitests -Ptest-patch > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/maven-patch-checkstyle-ql.txt 2>&1
+
+kafka-handler: The patch generated 95 new + 12 unchanged - 11 fixed = 107 total (was 23)
+
+
+
+============================================================================
+============================================================================
+                      Checking for whitespace issues.
+============================================================================
+============================================================================
+
+
+
+
+============================================================================
+============================================================================
+                          XML verification: patch
+============================================================================
+============================================================================
+
+
+
+
+============================================================================
+============================================================================
+                         findbugs detection: patch
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/itests/qtest-druid
+mvn -DskipTests -Pitests,findbugs test-compile findbugs:findbugs -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-findbugs-itests_qtest-druid.txt 2>&1
+Elapsed:   0m 18s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/kafka-handler
+mvn -DskipTests -Pitests,findbugs test-compile findbugs:findbugs -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-findbugs-kafka-handler.txt 2>&1
+Elapsed:   0m 23s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/ql
+mvn -DskipTests -Pitests,findbugs test-compile findbugs:findbugs -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-findbugs-ql.txt 2>&1
+Elapsed:   3m 51s
+Starting with /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-findbugs-itests_qtest-druid-warnings.xml
+Merging /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-findbugs-itests_qtest-druid-warnings.xml
+Writing /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/combined-findbugs-itests_qtest-druid.xml
+Starting with /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-findbugs-kafka-handler-warnings.xml
+Merging /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-findbugs-kafka-handler-warnings.xml
+Writing /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/combined-findbugs-kafka-handler.xml
+Starting with /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/branch-findbugs-ql-warnings.xml
+Merging /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-findbugs-ql-warnings.xml
+Writing /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/combined-findbugs-ql.xml
+
+kafka-handler generated 2 new + 0 unchanged - 1 fixed = 2 total (was 1)
+
+
+
+============================================================================
+============================================================================
+                        javadoc verification: patch
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/itests/qtest-druid
+mvn -DskipTests -Pitests,javadoc clean javadoc:javadoc -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-javadoc-itests_qtest-druid.txt 2>&1
+Elapsed:   0m 11s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/kafka-handler
+mvn -DskipTests -Pitests,javadoc clean javadoc:javadoc -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-javadoc-kafka-handler.txt 2>&1
+Elapsed:   0m 10s
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/ql
+mvn -DskipTests -Pitests,javadoc clean javadoc:javadoc -DskipTests=true > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-javadoc-ql.txt 2>&1
+Elapsed:   0m 57s
+
+
+============================================================================
+============================================================================
+                 Determining number of ASF License errors
+============================================================================
+============================================================================
+
+
+cd /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285
+mvn -fn apache-rat:check > /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-asflicense-root.txt 2>&1
+Elapsed:   0m 13s
+
+
+There appear to be 1 ASF License warnings after applying the patch.
+
+Total Elapsed time:  29m 40s
+
+
+
+============================================================================
+============================================================================
+                          Adding comment to JIRA
+============================================================================
+============================================================================
+
+
+
+
+-1 overall
+
+| Vote |      Subsystem |  Runtime   | Comment
+============================================================================
+|      |                |            | Prechecks 
+|  +1  |       @author  |   0m  0s   | The patch does not contain any @author 
+|      |                |            | tags.
+|      |                |            | master Compile Tests 
+|   0  |        mvndep  |   0m 37s   | Maven dependency ordering for branch 
+|  +1  |    mvninstall  |   8m 20s   | master passed 
+|  +1  |       compile  |   1m 30s   | master passed 
+|  +1  |    checkstyle  |   0m 56s   | master passed 
+|   0  |      findbugs  |   0m 18s   | itests/qtest-druid in master has 6 
+|      |                |            | extant Findbugs warnings.
+|   0  |      findbugs  |   0m 24s   | kafka-handler in master has 1 extant 
+|      |                |            | Findbugs warnings.
+|   0  |      findbugs  |   3m 49s   | ql in master has 2320 extant Findbugs 
+|      |                |            | warnings.
+|  +1  |       javadoc  |   1m 19s   | master passed 
+|      |                |            | Patch Compile Tests 
+|   0  |        mvndep  |   0m 10s   | Maven dependency ordering for patch 
+|  +1  |    mvninstall  |   2m 16s   | the patch passed 
+|  +1  |       compile  |   1m 28s   | the patch passed 
+|  +1  |         javac  |   1m 28s   | the patch passed 
+|  -1  |    checkstyle  |   0m 11s   | kafka-handler: The patch generated 95 
+|      |                |            | new + 12 unchanged - 11 fixed = 107 total
+|      |                |            | (was 23)
+|  -1  |    whitespace  |   0m  0s   | The patch has 38 line(s) that end in 
+|      |                |            | whitespace. Use git apply
+|      |                |            | --whitespace=fix <<patch_file>>. Refer
+|      |                |            | https://git-scm.com/docs/git-apply
+|  -1  |    whitespace  |   0m  1s   | The patch 10 line(s) with tabs. 
+|  +1  |           xml  |   0m  2s   | The patch has no ill-formed XML file. 
+|  -1  |      findbugs  |   0m 33s   | kafka-handler generated 2 new + 0 
+|      |                |            | unchanged - 1 fixed = 2 total (was 1)
+|  +1  |       javadoc  |   1m 18s   | the patch passed 
+|      |                |            | Other Tests 
+|  -1  |    asflicense  |   0m 13s   | The patch generated 1 ASF License 
+|      |                |            | warnings.
+|      |                |  29m 40s   | 
+
+
+    Reason | Tests
+ FindBugs  |  module:kafka-handler 
+           |  Found reliance on default encoding in org.apache.hadoop.hive.kafka.KafkaSerDe$TextBytesConverter.getBytes(Text):in org.apache.hadoop.hive.kafka.KafkaSerDe$TextBytesConverter.getBytes(Text): String.getBytes() At KafkaSerDe.java:[line 360] 
+           |  Boxing/unboxing to parse a primitive org.apache.hadoop.hive.kafka.KafkaStorageHandler.commitInsertTable(Table, boolean) At KafkaStorageHandler.java:org.apache.hadoop.hive.kafka.KafkaStorageHandler.commitInsertTable(Table, boolean) At KafkaStorageHandler.java:[line 237] 
+
+
+|| Subsystem || Report/Notes ||
+============================================================================
+| Optional Tests |  asflicense  javac  javadoc  xml  compile  findbugs  checkstyle  |
+| uname | Linux hiveptest-server-upstream 3.16.0-4-amd64 #1 SMP Debian 3.16.36-1+deb8u1 (2016-09-03) x86_64 GNU/Linux |
+| Build tool | maven |
+| Personality | /data/hiveptest/working/yetus_PreCommit-HIVE-Build-14285/dev-support/hive-personality.sh |
+| git revision | master / 3068f03 |
+| Default Java | 1.8.0_111 |
+| findbugs | v3.0.0 |
+| checkstyle | /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/diff-checkstyle-kafka-handler.txt |
+| whitespace | /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/whitespace-eol.txt |
+| whitespace | /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/whitespace-tabs.txt |
+| findbugs | /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/new-findbugs-kafka-handler.html |
+| asflicense | /data/hiveptest/logs/PreCommit-HIVE-Build-14285/yetus/patch-asflicense-problems.txt |
+| modules | C: itests/qtest-druid kafka-handler ql U: . |
+| Console output | http://104.198.109.242/logs//PreCommit-HIVE-Build-14285/yetus.txt |
+| Powered by | Apache Yetus    http://yetus.apache.org |
+
+
+============================================================================
+============================================================================
+                              Finished build.
+============================================================================
+============================================================================
+
+

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Diagram>
+  <ID>JAVA</ID>
+  <OriginalElement>org.apache.hadoop.hive.llap.cache.LlapCacheableBuffer</OriginalElement>
+  <nodes>
+    <node x="0.0" y="719.5">org.apache.hadoop.hive.llap.cache.LlapDataBuffer</node>
+    <node x="694.0" y="719.5">org.apache.hadoop.hive.llap.cache.SerDeLowLevelCacheImpl.LlapSerDeDataBuffer</node>
+    <node x="625.5" y="0.0">org.apache.hadoop.hive.llap.cache.LlapCacheableBuffer</node>
+    <node x="250.50000000000006" y="33.0">org.apache.hadoop.hive.common.io.encoded.MemoryBuffer</node>
+    <node x="322.00000000000006" y="189.0">org.apache.hadoop.hive.llap.cache.LlapAllocatorBuffer</node>
+    <node x="324.00000000000006" y="664.0">org.apache.hadoop.hive.llap.io.metadata.MetadataCache.LlapMetadataBuffer</node>
+    <node x="696.0" y="298.5">org.apache.hadoop.hive.llap.io.metadata.OrcFileEstimateErrors</node>
+  </nodes>
+  <notes />
+  <edges>
+    <edge source="org.apache.hadoop.hive.llap.cache.LlapDataBuffer" target="org.apache.hadoop.hive.llap.cache.LlapAllocatorBuffer">
+      <point x="0.0" y="-47.5" />
+      <point x="152.0" y="639.0" />
+      <point x="366.25000000000006" y="639.0" />
+      <point x="-132.75" y="212.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.cache.SerDeLowLevelCacheImpl.LlapSerDeDataBuffer" target="org.apache.hadoop.hive.llap.cache.LlapAllocatorBuffer">
+      <point x="0.0" y="-47.5" />
+      <point x="846.0" y="639.0" />
+      <point x="631.75" y="639.0" />
+      <point x="132.75" y="212.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.cache.LlapAllocatorBuffer" target="org.apache.hadoop.hive.common.io.encoded.MemoryBuffer">
+      <point x="-118.0" y="-212.5" />
+      <point x="0.0" y="36.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.cache.LlapAllocatorBuffer" target="org.apache.hadoop.hive.llap.cache.LlapCacheableBuffer">
+      <point x="0.0" y="-212.5" />
+      <point x="499.00000000000006" y="159.0" />
+      <point x="663.5" y="159.0" />
+      <point x="-114.0" y="69.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.metadata.OrcFileEstimateErrors" target="org.apache.hadoop.hive.llap.cache.LlapCacheableBuffer">
+      <point x="-119.5" y="-103.0" />
+      <point x="38.0" y="69.5" />
+    </edge>
+    <edge source="org.apache.hadoop.hive.llap.io.metadata.MetadataCache.LlapMetadataBuffer" target="org.apache.hadoop.hive.llap.cache.LlapAllocatorBuffer">
+      <point x="-87.5" y="-103.0" />
+      <point x="411.50000000000006" y="639.0" />
+      <point x="454.75000000000006" y="639.0" />
+      <point x="-44.25" y="212.5" />
+    </edge>
+  </edges>
+  <settings layout="Hierarchic Group" zoom="1.0" x="587.0" y="435.0" />
+  <SelectedNodes />
+  <Categories>
+    <Category>Constructors</Category>
+    <Category>Methods</Category>
+  </Categories>
+  <SCOPE>All</SCOPE>
+  <VISIBILITY>public</VISIBILITY>
+</Diagram>
+
