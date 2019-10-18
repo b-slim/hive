@@ -48,6 +48,10 @@ public abstract class LlapCacheableBuffer {
   public abstract long getMemoryUsage();
   public abstract void notifyEvicted(EvictionDispatcher evictionDispatcher);
 
+  public abstract void setClockBit();
+  public abstract void unSetClockBit();
+  public abstract boolean isClockBitSet();
+
   @Override
   public String toString() {
     return "0x" + Integer.toHexString(System.identityHashCode(this));

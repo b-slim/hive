@@ -80,9 +80,32 @@ public abstract class LlapAllocatorBuffer extends LlapCacheableBuffer implements
     return incRefInternal(false);
   }
 
+  /**
+   *
+   */
+  @Override
+  public void setClockBit() {
+    long val = state.get();
+    while (!State.isClockBitSet(val) && !state.compareAndSet(val, State.setClockBit(val))) {
+      val = state.get();
+    }
+  }
+  @Override
+  public void unSetClockBit() {
+    long val = state.get();
+    while (State.isClockBitSet(val) && !state.compareAndSet(val, State.unSetClockBit(val))) {
+      val = state.get();
+    }
+  }
+
+  @Override
+  public boolean isClockBitSet() {
+    return State.isClockBitSet(state.get());
+  }
+
   static final int INCREF_EVICTED = -1, INCREF_FAILED = -2;
   private int incRefInternal(boolean doWait) {
-    long newValue = -1;
+    long newValue;
     while (true) {
       long oldValue = state.get();
       if (State.hasFlags(oldValue, State.FLAG_EVICTED)) return INCREF_EVICTED;
@@ -341,11 +364,11 @@ public abstract class LlapAllocatorBuffer extends LlapCacheableBuffer implements
    * Utility class to manipulate the buffer state.
    */
    static final class State {
-    public static final int FLAG_MOVING = 0b00001; // Locked by someone to move or force-evict.
-    public static final int FLAG_EVICTED =      0b00010; // Evicted. This is cache-specific.
-    public static final int FLAG_REMOVED =      0b00100; // Removed from allocator structures. The final state.
-    public static final int FLAG_MEM_RELEASED = 0b01000; // The memory was released to memory manager.
-    public static final int FLAG_NEW_ALLOC =    0b10000; // New allocation before the first use; cannot force-evict.
+    static final int FLAG_MOVING = 0b00001; // Locked by someone to move or force-evict.
+    static final int FLAG_EVICTED =      0b00010; // Evicted. This is cache-specific.
+    static final int FLAG_REMOVED =      0b00100; // Removed from allocator structures. The final state.
+    static final int FLAG_MEM_RELEASED = 0b01000; // The memory was released to memory manager.
+    static final int FLAG_NEW_ALLOC =    0b10000; // New allocation before the first use; cannot force-evict.
 
     static final int FLAGS_WIDTH = 5;
     static final int REFCOUNT_WIDTH = 19;
@@ -353,7 +376,7 @@ public abstract class LlapAllocatorBuffer extends LlapCacheableBuffer implements
     static final int HEADER_WIDTH = 24;
     static final int CLOCK_BIT_WIDTH = 1;
 
-    public static final long MAX_REFCOUNT = (1 << REFCOUNT_WIDTH) - 1;
+    static final long MAX_REFCOUNT = (1 << REFCOUNT_WIDTH) - 1;
 
     private static final int REF_COUNT_SHIFT = FLAGS_WIDTH;
     private static final int ARENA_SHIFT = REF_COUNT_SHIFT + REFCOUNT_WIDTH;
