@@ -24,6 +24,13 @@ import org.apache.hadoop.hive.llap.LlapUtil;
 import org.apache.hadoop.hive.llap.cache.LowLevelCache.Priority;
 import org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl;
 
+/**
+ * This is a lock free version of FIFO cache replacement strategy.
+ * As of now this is added as a performance reference.
+ * Reason this is not production ready yet is because of the way how we can not account well for buffers added back
+ * to the Queue.
+ *
+ */
 public class LowLevelLockFreeFifoCachePolicy implements LowLevelCachePolicy {
 
   private final Queue<LlapCacheableBuffer> buffers = new ConcurrentArrayQueue<>();
