@@ -18,72 +18,97 @@
 
 package org.apache.hadoop.hive.llap.cache;
 
-import java.util.Queue;
+import java.util.Iterator;
+import java.util.LinkedList;
+
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.hadoop.hive.llap.LlapUtil;
 import org.apache.hadoop.hive.llap.cache.LowLevelCache.Priority;
 import org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl;
 
+/**
+ * Legacy lock based fifo policy, this is here for testing purpose.
+ */
 public class LowLevelFifoCachePolicy implements LowLevelCachePolicy {
-
-  private final Queue<LlapCacheableBuffer> buffers = new ConcurrentArrayQueue<>();
+  private final Lock lock = new ReentrantLock();
+  private final LinkedList<LlapCacheableBuffer> buffers;
   private EvictionListener evictionListener;
 
   public LowLevelFifoCachePolicy() {
     LlapIoImpl.LOG.info("FIFO cache policy");
+    buffers = new LinkedList<>();
   }
 
-  @Override public void cache(LlapCacheableBuffer buffer, Priority pri) {
-    buffers.add(buffer);
+  @Override
+  public void cache(LlapCacheableBuffer buffer, Priority pri) {
+    // Ignore priority.
+    lock.lock();
+    try {
+      buffers.add(buffer);
+    } finally {
+      lock.unlock();
+    }
   }
 
-  @Override public void notifyLock(LlapCacheableBuffer buffer) {
+  @Override
+  public void notifyLock(LlapCacheableBuffer buffer) {
     // FIFO policy doesn't care.
   }
 
-  @Override public void notifyUnlock(LlapCacheableBuffer buffer) {
+  @Override
+  public void notifyUnlock(LlapCacheableBuffer buffer) {
     // FIFO policy doesn't care.
   }
 
-  @Override public void setEvictionListener(EvictionListener listener) {
+  @Override
+  public void setEvictionListener(EvictionListener listener) {
     this.evictionListener = listener;
   }
 
-  @Override public long purge() {
+  @Override
+  public long purge() {
     long evicted = evictSomeBlocks(Long.MAX_VALUE);
     LlapIoImpl.LOG.info("PURGE: evicted {} from FIFO policy", LlapUtil.humanReadableByteCount(evicted));
     return evicted;
   }
 
-  @Override public long evictSomeBlocks(long memoryToReserve) {
+  @Override
+  public long evictSomeBlocks(long memoryToReserve) {
     return evictInternal(memoryToReserve, -1);
   }
 
   private long evictInternal(long memoryToReserve, int minSize) {
     long evicted = 0;
-    int attempts = 0;
-    while (evicted < memoryToReserve && !buffers.isEmpty() && attempts < 10) {
-      LlapCacheableBuffer buffer = buffers.poll();
-      if (buffer == null) {
-        attempts++;
-        continue;
+    lock.lock();
+    try {
+      Iterator<LlapCacheableBuffer> iter = buffers.iterator();
+      while (evicted < memoryToReserve && iter.hasNext()) {
+        LlapCacheableBuffer buffer = iter.next();
+        long memUsage = buffer.getMemoryUsage();
+        if (memUsage < minSize || (minSize > 0
+            && !(buffer instanceof LlapAllocatorBuffer))) continue;
+        if (LlapCacheableBuffer.INVALIDATE_OK == buffer.invalidate()) {
+          iter.remove();
+          evicted += memUsage;
+          evictionListener.notifyEvicted(buffer);
+        }
       }
-      long memUsage = buffer.getMemoryUsage();
-      if (memUsage < minSize || (minSize > 0 && !(buffer instanceof LlapAllocatorBuffer))) {
-        continue;
-      }
-      int result = buffer.invalidate();
-      if (LlapCacheableBuffer.INVALIDATE_OK == result) {
-        evicted += memUsage;
-        evictionListener.notifyEvicted(buffer);
-      } else if (result == LlapCacheableBuffer.INVALIDATE_FAILED) {
-        buffers.offer(buffer);
-      }
+    } finally {
+      lock.unlock();
     }
     return evicted;
   }
-  @Override public void debugDumpShort(StringBuilder sb) {
+
+  @Override
+  public void debugDumpShort(StringBuilder sb) {
     sb.append("\nFIFO eviction list: ");
-    sb.append(buffers.size()).append(" elements)");
+    lock.lock();
+    try {
+      sb.append(buffers.size()).append(" elements)");
+    } finally {
+      lock.unlock();
+    }
   }
 }
