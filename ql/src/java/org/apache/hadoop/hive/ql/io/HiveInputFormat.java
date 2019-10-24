@@ -271,6 +271,8 @@ public class HiveInputFormat<K extends WritableComparable, V extends Writable>
       return inputFormat;
     }
     Deserializer serde = null;
+    // we got 3 different llap io modes
+    // first one is serde based where the actual serde does not implement the llap interface but we can still use cache
     if (isSerdeBased) {
       if (part == null) {
         if (isCacheOnly) {
@@ -286,7 +288,8 @@ public class HiveInputFormat<K extends WritableComparable, V extends Writable>
       } catch (Exception e) {
         throw new HiveException("Error creating SerDe for LLAP IO", e);
       }
-    }
+    } //
+    // case we can wrap the IF using llapIO
     if (isSupported && isVectorized) {
       InputFormat<?, ?> wrappedIf = llapIo.getInputFormat(inputFormat, serde);
       // null means we cannot wrap; the cause is logged inside.
@@ -294,6 +297,7 @@ public class HiveInputFormat<K extends WritableComparable, V extends Writable>
         return castInputFormat(wrappedIf);
       }
     }
+    // this path we are not using the elevator stuff and only using the cache like for parquet.
     if (isCacheOnly) {
       injectLlapCaches(inputFormat, llapIo, conf);
     }
@@ -320,6 +324,13 @@ public class HiveInputFormat<K extends WritableComparable, V extends Writable>
     return false;
   }
 
+  /**
+   * @TODO need the check what this method is doing ?
+   *
+   * @param inputFormat
+   * @param llapIo
+   * @param conf
+   */
   public static void injectLlapCaches(InputFormat<WritableComparable, Writable> inputFormat,
       LlapIo<VectorizedRowBatch> llapIo, Configuration conf) {
     LOG.info("Injecting LLAP caches into " + inputFormat.getClass().getCanonicalName());
