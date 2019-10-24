@@ -28,6 +28,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class ClockCachePolicy implements LowLevelCachePolicy {
 
+  public static final int DEFAULT_MAX_CIRCLES = 4;
   private EvictionListener evictionListener;
 
   /**
@@ -37,7 +38,7 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
    */
   private LlapCacheableBuffer clockHand;
   private final Lock lock = new ReentrantLock();
-  private final int maxCircles = 2;
+  private final int maxCircles = DEFAULT_MAX_CIRCLES;
 
   /**
    * Signals to the policy the addition of a new entry to the cache. An entry come with a priority that can be used as

@@ -48,8 +48,19 @@ public abstract class LlapCacheableBuffer {
   public abstract long getMemoryUsage();
   public abstract void notifyEvicted(EvictionDispatcher evictionDispatcher);
 
+  /**
+   * Set the clock bit to true, should be thread safe
+   */
   public abstract void setClockBit();
+
+  /**
+   * Set the clock bit to false, should be thread safe.
+   */
   public abstract void unSetClockBit();
+
+  /**
+   * @return value of the clock bit.
+   */
   public abstract boolean isClockBitSet();
 
   @Override
