@@ -65,7 +65,6 @@ public class CacheContentsTracker implements LowLevelCachePolicy, EvictionListen
               long deltaNs = timeNs - v.emptyTimeNs;
               if (deltaNs < cleanupTimeNs) {
                 nextCleanupInNs = Math.min(nextCleanupInNs, deltaNs);
-                continue;
               } else {
                 iter.remove();
               }
@@ -74,7 +73,7 @@ public class CacheContentsTracker implements LowLevelCachePolicy, EvictionListen
           sleepTimeMs = Math.max(MIN_TIME_MS, nextCleanupInNs / 1000000L);
         }
       } catch (InterruptedException ex) {
-        return; // Interrupted.
+        Thread.currentThread().interrupt();
       }
     }
   }
