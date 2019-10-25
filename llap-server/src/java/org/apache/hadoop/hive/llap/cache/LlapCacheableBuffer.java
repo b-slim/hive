@@ -26,26 +26,35 @@ import org.apache.hadoop.hive.common.io.CacheTag;
  * using a real programming language.
  */
 public abstract class LlapCacheableBuffer {
-  protected static final int IN_LIST = -2, NOT_IN_CACHE = -1;
   public static final int INVALIDATE_OK = 0, INVALIDATE_FAILED = 1, INVALIDATE_ALREADY_INVALID = 2;
 
   /** Priority for cache policy (should be pretty universal). */
   public double priority;
   /** Last priority update time for cache policy (should be pretty universal). */
   public long lastUpdate = -1;
+  /** Index in heap for LRFU/LFU cache policies. */
+  public int indexInHeap = LowLevelLrfuCachePolicy.NOT_IN_CACHE;
 
-  // TODO: remove some of these fields as needed?
   /** Linked list pointers for LRFU/LRU cache policies. Given that each block is in cache
    * that might be better than external linked list. Or not, since this is not concurrent. */
   public LlapCacheableBuffer prev = null;
   /** Linked list pointers for LRFU/LRU cache policies. Given that each block is in cache
    * that might be better than external linked list. Or not, since this is not concurrent. */
   public LlapCacheableBuffer next = null;
-  /** Index in heap for LRFU/LFU cache policies. */
-  public int indexInHeap = NOT_IN_CACHE;
 
+  /**
+   * @return result of invalidation.
+   */
   protected abstract int invalidate();
+
+  /**
+   * @return size of the buffer in bytes.
+   */
   public abstract long getMemoryUsage();
+
+  /**
+   * @param evictionDispatcher dispatcher object to be notified.
+   */
   public abstract void notifyEvicted(EvictionDispatcher evictionDispatcher);
 
   /**
@@ -73,7 +82,13 @@ public abstract class LlapCacheableBuffer {
         + lastUpdate + " " + (isLocked() ? "!" : ".") + "]";
   }
 
+  /**
+   * @return human readable tag used by the cache content tracker.
+   */
   public abstract CacheTag getTag();
 
+  /**
+   * @return true if the buffer is locked as part of query execution.
+   */
   protected abstract boolean isLocked();
 }

@@ -43,6 +43,8 @@ import org.apache.hadoop.metrics2.impl.MsInfo;
  * Additionally, buffer locking has to be handled (locked buffer cannot be evicted).
  */
 public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
+  public static final int IN_LIST = -2;
+  public static final int NOT_IN_CACHE = -1;
   private final double lambda;
   private double f(long x) {
     return Math.pow(0.5, lambda * x);
@@ -138,7 +140,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
     // a locked item in either, it will remove it from cache; when we unlock, we are going to
     // put it back or update it, depending on whether this has happened. This should cause
     // most of the expensive cache update work to happen in unlock, not blocking processing.
-    if (buffer.indexInHeap != LlapCacheableBuffer.IN_LIST || !listLock.tryLock()) {
+    if (buffer.indexInHeap != IN_LIST || !listLock.tryLock()) {
       return;
     }
 
@@ -193,7 +195,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
           : touchPriority(time, buffer.lastUpdate, buffer.priority);
       buffer.lastUpdate = time;
       // Then, if the buffer was in the list, remove it.
-      if (buffer.indexInHeap == LlapCacheableBuffer.IN_LIST) {
+      if (buffer.indexInHeap == IN_LIST) {
         listLock.lock();
         removeFromListAndUnlock(buffer);
       }
@@ -208,7 +210,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
         listLock.lock();
         try {
           assert demoted.indexInHeap == 0; // Noone could have moved it, we have the heap lock.
-          demoted.indexInHeap = LlapCacheableBuffer.IN_LIST;
+          demoted.indexInHeap = IN_LIST;
           demoted.prev = null;
           if (listHead != null) {
             demoted.next = listHead;
@@ -250,7 +252,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
       oldTail = listTail;
       while (current != null) {
         boolean canEvict = LlapCacheableBuffer.INVALIDATE_OK == current.invalidate();
-        current.indexInHeap = LlapCacheableBuffer.NOT_IN_CACHE;
+        current.indexInHeap = NOT_IN_CACHE;
         if (canEvict) {
           current = current.prev;
         } else {
@@ -276,7 +278,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
       heapSize = 0;
       for (int i = 0; i < oldHeapSize; ++i) {
         LlapCacheableBuffer result = oldHeap[i];
-        result.indexInHeap = LlapCacheableBuffer.NOT_IN_CACHE;
+        result.indexInHeap = NOT_IN_CACHE;
         int invalidateResult = result.invalidate();
         if (invalidateResult != LlapCacheableBuffer.INVALIDATE_OK) {
           oldHeap[i] = null; // Removed from heap without evicting.
@@ -370,7 +372,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
           continue;
         }
         // Update the state to removed-from-list, so that parallel notifyUnlock doesn't modify us.
-        nextCandidate.indexInHeap = LlapCacheableBuffer.NOT_IN_CACHE;
+        nextCandidate.indexInHeap = NOT_IN_CACHE;
         evicted += nextCandidate.getMemoryUsage();
         nextCandidate = nextCandidate.prev;
       }
@@ -434,7 +436,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
     if (LlapIoImpl.CACHE_LOGGER.isTraceEnabled()) {
       LlapIoImpl.CACHE_LOGGER.trace("Evicting {} at {}", result, time);
     }
-    result.indexInHeap = LlapCacheableBuffer.NOT_IN_CACHE;
+    result.indexInHeap = NOT_IN_CACHE;
     --heapSize;
     int invalidateResult = result.invalidate();
     boolean canEvict = invalidateResult == LlapCacheableBuffer.INVALIDATE_OK;
@@ -513,7 +515,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
 
   private void removeFromListAndUnlock(LlapCacheableBuffer buffer) {
     try {
-      if (buffer.indexInHeap != LlapCacheableBuffer.IN_LIST) {
+      if (buffer.indexInHeap != IN_LIST) {
         return;
       }
       removeFromListUnderLock(buffer);
@@ -523,7 +525,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
   }
 
   private void removeFromListUnderLock(LlapCacheableBuffer buffer) {
-    buffer.indexInHeap = LlapCacheableBuffer.NOT_IN_CACHE;
+    buffer.indexInHeap = NOT_IN_CACHE;
     boolean isTail = buffer == listTail, isHead = buffer == listHead;
     if ((isTail != (buffer.next == null)) || (isHead != (buffer.prev == null))) {
       debugDumpListOnError(buffer);
