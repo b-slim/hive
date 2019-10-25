@@ -45,6 +45,8 @@ public interface LlapIo<T> {
   /**
    * purge is best effort and will just release the buffers that are unlocked (refCount == 0). This is typically
    * called when the system is idle.
+   *
+   * @return Total amount of purged bytes.
    */
   long purge();
 
