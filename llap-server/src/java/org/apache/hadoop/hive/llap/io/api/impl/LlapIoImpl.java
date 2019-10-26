@@ -39,15 +39,12 @@ import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
 import org.apache.hadoop.hive.llap.cache.BuddyAllocator;
 import org.apache.hadoop.hive.llap.cache.BufferUsageManager;
-import org.apache.hadoop.hive.llap.cache.CacheContentsTracker;
 import org.apache.hadoop.hive.llap.cache.EvictionDispatcher;
 import org.apache.hadoop.hive.llap.cache.LlapIoDebugDump;
 import org.apache.hadoop.hive.llap.cache.LowLevelCache;
 import org.apache.hadoop.hive.llap.cache.LowLevelCacheImpl;
 import org.apache.hadoop.hive.llap.cache.LowLevelCacheMemoryManager;
 import org.apache.hadoop.hive.llap.cache.LowLevelCachePolicy;
-import org.apache.hadoop.hive.llap.cache.LowLevelFifoCachePolicy;
-import org.apache.hadoop.hive.llap.cache.LowLevelLrfuCachePolicy;
 import org.apache.hadoop.hive.llap.cache.SerDeLowLevelCacheImpl;
 import org.apache.hadoop.hive.llap.cache.SimpleAllocator;
 import org.apache.hadoop.hive.llap.cache.SimpleBufferManager;
@@ -140,19 +137,10 @@ public class LlapIoImpl implements LlapIo<VectorizedRowBatch>, LlapIoDebugDump {
     final SerDeLowLevelCacheImpl serdeCache; // TODO: extract interface when needed
     if (useLowLevelCache) {
       // Memory manager uses cache policy to trigger evictions, so create the policy first.
-      boolean useLrfu = HiveConf.getBoolVar(conf, HiveConf.ConfVars.LLAP_USE_LRFU);
-      long totalMemorySize = HiveConf.getSizeVar(conf, ConfVars.LLAP_IO_MEMORY_MAX_SIZE);
-      int minAllocSize = (int) HiveConf.getSizeVar(conf, ConfVars.LLAP_ALLOCATOR_MIN_ALLOC);
-      LowLevelCachePolicy
-          realCachePolicy =
-          useLrfu ? new LowLevelLrfuCachePolicy(minAllocSize, totalMemorySize, conf) : new LowLevelFifoCachePolicy();
-      final boolean trackUsage = HiveConf.getBoolVar(conf, HiveConf.ConfVars.LLAP_TRACK_CACHE_USAGE);
-      final LowLevelCachePolicy cachePolicyWrapper;
-      if (trackUsage) {
-        cachePolicyWrapper = new CacheContentsTracker(realCachePolicy);
-      } else {
-        cachePolicyWrapper = realCachePolicy;
-      }
+      final long totalMemorySize = HiveConf.getSizeVar(conf, ConfVars.LLAP_IO_MEMORY_MAX_SIZE);
+
+      final LowLevelCachePolicy cachePolicyWrapper = LowLevelCachePolicy.provideFromConf(conf);
+
       // Allocator uses memory manager to request memory, so create the manager next.
       this.memoryManager = new LowLevelCacheMemoryManager(totalMemorySize, cachePolicyWrapper, cacheMetrics);
       this.cacheMetrics.setCacheCapacityTotal(totalMemorySize);
@@ -176,10 +164,7 @@ public class LlapIoImpl implements LlapIo<VectorizedRowBatch>, LlapIoDebugDump {
       cacheImpl.startThreads(); // Start the cache threads.
       bufferManager = bufferManagerOrc = cacheImpl; // Cache also serves as buffer manager.
       bufferManagerGeneric = serdeCache;
-      if (trackUsage) {
-        debugDumpComponents.add(cachePolicyWrapper); // Cache contents tracker.
-      }
-      debugDumpComponents.add(realCachePolicy);
+      debugDumpComponents.add(cachePolicyWrapper); // Cache contents tracker.
       debugDumpComponents.add(cacheImpl);
       if (serdeCache != null) {
         debugDumpComponents.add(serdeCache);

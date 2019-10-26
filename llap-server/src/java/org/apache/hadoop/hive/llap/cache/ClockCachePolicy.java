@@ -19,6 +19,7 @@
 package org.apache.hadoop.hive.llap.cache;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -28,17 +29,31 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class ClockCachePolicy implements LowLevelCachePolicy {
 
-  public static final int DEFAULT_MAX_CIRCLES = 4;
-  private EvictionListener evictionListener;
-
+  static final int DEFAULT_MAX_CIRCLES = 5;
   /**
-   * The clock hand.
-   * Will be null at start.
-   * On each insert we add the new item as new tail.
+   * The clock hand shared between threads thus made volatile.
+   * Will be null at start, On each insert we add the new item as new tail.
    */
-  private LlapCacheableBuffer clockHand;
+  private volatile LlapCacheableBuffer clockHand;
+  /**
+   * Global lock used to exclusive access to the linked ring including head modification.
+   */
   private final Lock lock = new ReentrantLock();
-  private final int maxCircles = DEFAULT_MAX_CIRCLES;
+
+  private EvictionListener evictionListener;
+  /**
+   * Max number of clock rotation before giving up on clock operation like eviction.
+   */
+  private final int maxCircles;
+
+  public ClockCachePolicy() {
+    maxCircles = DEFAULT_MAX_CIRCLES;
+  }
+
+  public ClockCachePolicy(int maxCircles) {
+    Preconditions.checkState(maxCircles > 0, "Maximum number of clock rotation must be positive and got " + maxCircles);
+    this.maxCircles = maxCircles;
+  }
 
   /**
    * Signals to the policy the addition of a new entry to the cache. An entry come with a priority that can be used as
@@ -56,23 +71,10 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
     }
   }
 
-  /*private void appendToList(LlapCacheableBuffer buffer) {
-    if (clockHand == null) {
-      clockHand = buffer;
-      clockHand.prev = clockHand;
-      clockHand.next = clockHand;
-      return;
-    }
-    LlapCacheableBuffer tail = clockHand.prev;
-    tail.next = buffer;
-    buffer.next = clockHand;
-    buffer.prev = tail;
-    clockHand.prev = buffer;
-  }*/
-
   /**
    * Appends new entry to the tail of circular list.
-   * @param head circular list head.
+   *
+   * @param head   circular list head.
    * @param buffer new entry to be added.
    * @return the ring head.
    */
@@ -89,15 +91,15 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
 
   /**
    * Links the entry to it self to form a ring.
+   *
    * @param buffer input
    * @return buffer
    */
   private static LlapCacheableBuffer linkToItSelf(LlapCacheableBuffer buffer) {
     buffer.prev = buffer;
     buffer.next = buffer;
-    return  buffer;
+    return buffer;
   }
-
 
   @Override public void notifyLock(LlapCacheableBuffer buffer) {
     buffer.setClockBit();
@@ -123,22 +125,22 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
    */
   @Override public long evictSomeBlocks(long memoryToReserve) {
     long evicted = 0;
+    if (clockHand == null) {
+      return evicted;
+    }
+    int fullClockRotation = 0;
     lock.lock();
-    int fullCircle = 0;
     try {
-      if (clockHand == null) {
-        return evicted;
-      }
       LlapCacheableBuffer lastBuffer = clockHand.prev;
-      while (evicted < memoryToReserve && clockHand != null && fullCircle < maxCircles) {
+      while (evicted < memoryToReserve && clockHand != null && fullClockRotation < maxCircles) {
         if (lastBuffer == clockHand) {
-          fullCircle++;
+          fullClockRotation++;
         }
         if (clockHand.isClockBitSet()) {
           //mark it as ready to be removed
           clockHand.unSetClockBit();
           clockHand = clockHand.next;
-        } else  {
+        } else {
           // try to evict this victim
           if (clockHand.invalidate() == LlapCacheableBuffer.INVALIDATE_OK) {
             evictionListener.notifyEvicted(clockHand);
@@ -168,12 +170,6 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
     }
   }
 
-  private String clockStatus() {
-    StringBuilder stringBuilder = new StringBuilder();
-    this.debugDumpShort(stringBuilder);
-    return stringBuilder.toString();
-  }
-
   @Override public void setEvictionListener(EvictionListener listener) {
     evictionListener = listener;
   }
@@ -183,11 +179,13 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
   }
 
   @Override public void debugDumpShort(StringBuilder sb) {
+    if (clockHand == null) {
+      sb.append("Clock is empty");
+      return;
+    }
     lock.lock();
     try {
-      if (clockHand == null) {
-        return;
-      }
+      sb.append("Clock Status\n");
       LlapCacheableBuffer currentClockHand = clockHand;
       LlapCacheableBuffer lastElement = clockHand.prev;
       while (currentClockHand != lastElement) {
@@ -200,8 +198,7 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
     }
   }
 
-  @VisibleForTesting
-  public LlapCacheableBuffer getClockHand() {
+  @VisibleForTesting public LlapCacheableBuffer getClockHand() {
     return clockHand;
   }
 }
