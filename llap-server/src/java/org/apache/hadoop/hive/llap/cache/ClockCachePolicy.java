@@ -21,6 +21,7 @@ package org.apache.hadoop.hive.llap.cache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
+import java.util.Iterator;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -131,39 +132,55 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
     int fullClockRotation = 0;
     lock.lock();
     try {
-      LlapCacheableBuffer lastBuffer = clockHand.prev;
-      while (evicted < memoryToReserve && clockHand != null && fullClockRotation < maxCircles) {
-        if (lastBuffer == clockHand) {
+      // ring tail is used to mark a clock circle
+      LlapCacheableBuffer ringTail = clockHand.prev;
+      // ring head is the current clock position that is under lock. Using local var under lock and updating actual
+      // clock position as soon we are done with looping
+      LlapCacheableBuffer currentClockHead = clockHand;
+
+      while (evicted < memoryToReserve && currentClockHead != null && fullClockRotation < maxCircles) {
+        if (ringTail == currentClockHead) {
           fullClockRotation++;
         }
-        if (clockHand.isClockBitSet()) {
-          //mark it as ready to be removed
-          clockHand.unSetClockBit();
-          clockHand = clockHand.next;
+        if (currentClockHead.isClockBitSet()) {
+          // case the buffer getting second chance.
+          currentClockHead.unSetClockBit();
+          currentClockHead = currentClockHead.next;
         } else {
           // try to evict this victim
-          if (clockHand.invalidate() == LlapCacheableBuffer.INVALIDATE_OK) {
-            evictionListener.notifyEvicted(clockHand);
-            evicted += clockHand.getMemoryUsage();
-            LlapCacheableBuffer newHand = clockHand.next;
-            if (newHand == clockHand) {
-              clockHand = null;
+          int invalidateFlag = currentClockHead.invalidate();
+          if (invalidateFlag == LlapCacheableBuffer.INVALIDATE_OK
+              || invalidateFlag == LlapCacheableBuffer.INVALIDATE_ALREADY_INVALID) {
+            if (invalidateFlag ==  LlapCacheableBuffer.INVALIDATE_OK) {
+              // case we are able to evict the buffer notify and account for it.
+              evictionListener.notifyEvicted(currentClockHead);
+              evicted += currentClockHead.getMemoryUsage();
+            }
+            LlapCacheableBuffer newHand = currentClockHead.next;
+            if (newHand == currentClockHead) {
+              // end of the ring we have looped, nothing else can be done...
+              currentClockHead = null;
+              break;
             } else {
               //remove it from the ring.
-              if (clockHand == lastBuffer) {
-                lastBuffer = clockHand.prev;
+              if (currentClockHead == ringTail) {
+                // we are about to remove the current ring tail thus we need to compute new tail
+                ringTail = ringTail.prev;
               }
-              clockHand.prev.next = newHand;
-              newHand.prev = clockHand.prev;
-              clockHand = newHand;
+              currentClockHead.prev.next = newHand;
+              newHand.prev = currentClockHead.prev;
+              currentClockHead = newHand;
             }
+          } else if (invalidateFlag == LlapCacheableBuffer.INVALIDATE_FAILED){
+            // can not be evicted case locked
+            currentClockHead = currentClockHead.next;
           } else {
-            // can not be evicted set it back at candidate to next cycle
-            clockHand.unSetClockBit();
-            clockHand = clockHand.next;
+            throw new IllegalStateException("Unknown invalidation flag " + invalidateFlag);
           }
         }
       }
+      // done with clock rotations, update the current clock hand under lock.
+      clockHand = currentClockHead;
       return evicted;
     } finally {
       lock.unlock();
@@ -196,6 +213,39 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
     } finally {
       lock.unlock();
     }
+  }
+
+  @VisibleForTesting protected Iterator<LlapCacheableBuffer> getIterator() {
+    final LlapCacheableBuffer currentHead = clockHand;
+    if (currentHead == null) {
+      return new Iterator<LlapCacheableBuffer>() {
+        @Override public boolean hasNext() {
+          return false;
+        }
+
+        @Override public LlapCacheableBuffer next() {
+          return null;
+        }
+      };
+    }
+    final LlapCacheableBuffer tail = clockHand.prev;
+
+    return  new Iterator<LlapCacheableBuffer>() {
+      LlapCacheableBuffer current = currentHead;
+      private  boolean isLast = false;
+      @Override public boolean hasNext() {
+        return !isLast;
+      }
+
+      @Override public LlapCacheableBuffer next() {
+        if (current == tail) {
+          isLast = true;
+        }
+        LlapCacheableBuffer r = current;
+        current = current.next;
+        return r;
+      }
+    };
   }
 
   @VisibleForTesting public LlapCacheableBuffer getClockHand() {

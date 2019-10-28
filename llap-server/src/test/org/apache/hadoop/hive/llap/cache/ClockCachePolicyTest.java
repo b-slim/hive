@@ -18,6 +18,7 @@
 
 package org.apache.hadoop.hive.llap.cache;
 
+import com.google.common.collect.Lists;
 import org.apache.hadoop.hive.common.io.CacheTag;
 import org.junit.Assert;
 import org.junit.Test;
@@ -29,9 +30,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -44,6 +47,7 @@ public class ClockCachePolicyTest {
   private static final int BUFFER_SIZE = 16;
   private static final long SEED = 9999;
   public static final Predicate<Integer> IS_EVEN = x -> x % 2 == 0;
+  public static final Function<Integer, Integer> MOD_3 = x -> x % 3;
   private final int numPages;
 
   ClockCachePolicyTest.EvictionTracker defaultEvictionListener = new ClockCachePolicyTest.EvictionTracker();
@@ -100,28 +104,39 @@ public class ClockCachePolicyTest {
     Assert.assertEquals(i, 0);
   }
 
-  @Test public void testEvictionOneByOne() {
+  @Test(timeout = 6000L) public void testEvictionOneByOne() {
     defaultEvictionListener.evicted.clear();
     List<LlapCacheableBuffer> access = getLlapCacheableBuffers(numPages);
     Collections.shuffle(access, new Random(SEED));
-    ClockCachePolicy policy = new ClockCachePolicy();
+    ClockCachePolicy policy = new ClockCachePolicy(5);
     policy.setEvictionListener(defaultEvictionListener);
     access.forEach(b -> policy.cache(b, LowLevelCache.Priority.NORMAL));
+    // set the flag for buffer with even index
+    for (int i = 0; i < access.size(); i++) {
+      if (i % 2 == 0 ) {
+        // touch some buffers.
+        policy.notifyLock(access.get(i));
+      }
+    }
+
     while (policy.getClockHand() != null) {
       // should not over evict
       Assert.assertEquals(BUFFER_SIZE, policy.evictSomeBlocks(BUFFER_SIZE));
     }
     Assert.assertEquals(defaultEvictionListener.evicted.size(), numPages);
-    for (int i = 0; i < access.size(); i++) {
-      Assert.assertEquals(defaultEvictionListener.evicted.get(i), access.get(i));
+    // check the order of the eviction
+    for (int i = 0; i < access.size() / 2; i++) {
+      Assert.assertEquals(defaultEvictionListener.evicted.get(i), access.get(i * 2 + 1));
+      Assert.assertEquals(defaultEvictionListener.evicted.get(i +  access.size() / 2), access.get(i * 2));
     }
+
   }
 
   @Test public void testEvictionWithLockedBuffers() {
     defaultEvictionListener.evicted.clear();
     List<LlapCacheableBuffer> access = getLlapCacheableBuffers(numPages, IS_EVEN);
     Collections.shuffle(access, new Random(SEED));
-    ClockCachePolicy policy = new ClockCachePolicy();
+    ClockCachePolicy policy = new ClockCachePolicy(5);
     policy.setEvictionListener(defaultEvictionListener);
     access.forEach(b -> policy.cache(b, LowLevelCache.Priority.NORMAL));
     List<LlapCacheableBuffer>
@@ -130,6 +145,31 @@ public class ClockCachePolicyTest {
             .filter(llapCacheableBuffer -> llapCacheableBuffer.invalidate() == INVALIDATE_OK)
             .collect(Collectors.toList());
     Assert.assertEquals(unlockedBuffers.stream().mapToLong(LlapCacheableBuffer::getMemoryUsage).sum(), policy.purge());
+  }
+
+
+  @Test public void testEvictionWithLockedBuffersAndInvalid() {
+    defaultEvictionListener.evicted.clear();
+    List<LlapCacheableBuffer> access = getLlapCacheableBuffersWithFn(numPages, MOD_3);
+    Collections.shuffle(access, new Random(SEED));
+    ClockCachePolicy policy = new ClockCachePolicy(5);
+    policy.setEvictionListener(defaultEvictionListener);
+    access.forEach(b -> policy.cache(b, LowLevelCache.Priority.NORMAL));
+    List<LlapCacheableBuffer>
+        invalidateOkBuffers =
+        access.stream()
+            .filter(llapCacheableBuffer -> llapCacheableBuffer.invalidate() == INVALIDATE_OK)
+            .collect(Collectors.toList());
+
+    List<LlapCacheableBuffer>
+        lockedBuffer =
+        access.stream()
+            .filter(llapCacheableBuffer -> llapCacheableBuffer.invalidate() == INVALIDATE_FAILED)
+            .collect(Collectors.toList());
+
+    Assert.assertEquals(invalidateOkBuffers.stream().mapToLong(LlapCacheableBuffer::getMemoryUsage).sum(), policy.purge());
+    List<LlapCacheableBuffer> actualLocked = Lists.newArrayList(policy.getIterator());
+    Assert.assertEquals(lockedBuffer, actualLocked);
   }
 
   @Test public void testPurgeWhenAllUnlocked() {
@@ -166,6 +206,15 @@ public class ClockCachePolicyTest {
     return IntStream.range(0, numPages)
         .mapToObj(i -> new TestLlapCacheableBuffer(BUFFER_SIZE,
             invalidatePredicate.test(i) ? INVALIDATE_OK : INVALIDATE_FAILED,
+            String.valueOf(i)))
+        .collect(Collectors.toList());
+  }
+
+  @NotNull public static List<LlapCacheableBuffer> getLlapCacheableBuffersWithFn(int numPages,
+      Function<Integer, Integer> invalidatePredicate) {
+    return IntStream.range(0, numPages)
+        .mapToObj(i -> new TestLlapCacheableBuffer(BUFFER_SIZE,
+            invalidatePredicate.apply(i),
             String.valueOf(i)))
         .collect(Collectors.toList());
   }
