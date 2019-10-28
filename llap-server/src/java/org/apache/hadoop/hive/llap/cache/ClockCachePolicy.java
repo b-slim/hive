@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -151,7 +152,7 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
           int invalidateFlag = currentClockHead.invalidate();
           if (invalidateFlag == LlapCacheableBuffer.INVALIDATE_OK
               || invalidateFlag == LlapCacheableBuffer.INVALIDATE_ALREADY_INVALID) {
-            if (invalidateFlag ==  LlapCacheableBuffer.INVALIDATE_OK) {
+            if (invalidateFlag == LlapCacheableBuffer.INVALIDATE_OK) {
               // case we are able to evict the buffer notify and account for it.
               evictionListener.notifyEvicted(currentClockHead);
               evicted += currentClockHead.getMemoryUsage();
@@ -171,7 +172,7 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
               newHand.prev = currentClockHead.prev;
               currentClockHead = newHand;
             }
-          } else if (invalidateFlag == LlapCacheableBuffer.INVALIDATE_FAILED){
+          } else if (invalidateFlag == LlapCacheableBuffer.INVALIDATE_FAILED) {
             // can not be evicted case locked
             currentClockHead = currentClockHead.next;
           } else {
@@ -229,15 +230,18 @@ public class ClockCachePolicy implements LowLevelCachePolicy {
       };
     }
     final LlapCacheableBuffer tail = clockHand.prev;
-
-    return  new Iterator<LlapCacheableBuffer>() {
+    return new Iterator<LlapCacheableBuffer>() {
       LlapCacheableBuffer current = currentHead;
-      private  boolean isLast = false;
+      private boolean isLast = false;
+
       @Override public boolean hasNext() {
         return !isLast;
       }
 
       @Override public LlapCacheableBuffer next() {
+        if (isLast) {
+          throw new NoSuchElementException("Iterator done");
+        }
         if (current == tail) {
           isLast = true;
         }
