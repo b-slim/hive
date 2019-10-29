@@ -20,13 +20,13 @@ package org.apache.hadoop.hive.llap.cache;
 
 public final class LrfuCacheAttribute implements LlapCacheableBuffer.CacheAttribute {
   /** Priority for cache policy (should be pretty universal). */
-  public double priority;
+  public float priority;
   /** Last priority update time for cache policy (should be pretty universal). */
   public long lastUpdate = -1;
   /** Index in heap for LRFU/LFU cache policies. */
   public int indexInHeap = LowLevelLrfuCachePolicy.NOT_IN_CACHE;
 
-  public LrfuCacheAttribute(double priority, long lastUpdate) {
+  public LrfuCacheAttribute(float priority, long lastUpdate) {
     this.priority = priority;
     this.lastUpdate = lastUpdate;
   }
@@ -42,11 +42,11 @@ public final class LrfuCacheAttribute implements LlapCacheableBuffer.CacheAttrib
         + '}';
   }
 
-  @Override public double getPriority() {
+  @Override public float getPriority() {
     return priority;
   }
 
-  @Override public void setPriority(double priority) {
+  @Override public void setPriority(float priority) {
     this.priority = priority;
   }
 

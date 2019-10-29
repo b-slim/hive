@@ -46,14 +46,14 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
   public static final int IN_LIST = -2;
   public static final int NOT_IN_CACHE = -1;
   private final double lambda;
-  private double f(long x) {
-    return Math.pow(0.5, lambda * x);
+  private float f(long x) {
+    return (float) Math.pow(0.5, lambda * x);
   }
-  private static final double F0 = 1; // f(0) is always 1
-  private double touchPriority(long time, long lastAccess, double previous) {
+  private static final float F0 = 1; // f(0) is always 1
+  private float touchPriority(long time, long lastAccess, float previous) {
     return F0 + f(time - lastAccess) * previous;
   }
-  private double expirePriority(long time, long lastAccess, double previous) {
+  private float expirePriority(long time, long lastAccess, float previous) {
     return f(time - lastAccess) * previous;
   }
 
@@ -84,17 +84,18 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
   public LowLevelLrfuCachePolicy(int minBufferSize, long maxSize, Configuration conf) {
 
     this.maxQueueSize = HiveConf.getIntVar(conf, HiveConf.ConfVars.LLAP_LRFU_BP_WRAPPER_SIZE);
-    this.lambda = HiveConf.getFloatVar(conf, HiveConf.ConfVars.LLAP_LRFU_LAMBDA);
-
-    int maxBuffers = (int)Math.ceil((maxSize * 1.0) / minBufferSize);
+    lambda = HiveConf.getFloatVar(conf, HiveConf.ConfVars.LLAP_LRFU_LAMBDA);
+    int maxBuffers = (int) Math.ceil((maxSize * 1.0) / minBufferSize);
     if (lambda == 0) {
       maxHeapSize = maxBuffers; // lrfuThreshold is +inf in this case
     } else {
-      int lrfuThreshold = (int)((Math.log(1 - Math.pow(0.5, lambda)) / Math.log(0.5)) / lambda);
+      int lrfuThreshold = (int) ((Math.log(1 - Math.pow(0.5, lambda)) / Math.log(0.5)) / lambda);
       maxHeapSize = Math.min(lrfuThreshold, maxBuffers);
     }
     LlapIoImpl.LOG.info("LRFU cache policy with min buffer size {} and lambda {} (heap size {})",
-        minBufferSize, lambda, maxHeapSize);
+        minBufferSize,
+        lambda,
+        maxHeapSize);
 
     heap = new LlapCacheableBuffer[maxHeapSize];
     listHead = null;
@@ -416,14 +417,14 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
   private void heapifyUpUnderLock(LlapCacheableBuffer buffer, long time) {
     // See heapifyDown comment.
     int ix = buffer.cacheAttribute.getIndex();
-    double priority = buffer.cacheAttribute.getPriority();
+    float priority = buffer.cacheAttribute.getPriority();
     while (true) {
       if (ix == 0) {
         break; // Buffer is at the top of the heap.
       }
       int parentIx = (ix - 1) >>> 1;
       LlapCacheableBuffer parent = heap[parentIx];
-      double parentPri = getHeapifyPriority(parent, time);
+      float parentPri = getHeapifyPriority(parent, time);
       if (priority >= parentPri) {
         break;
       }
@@ -466,7 +467,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
     // we correct any discrepancy w/the parent after expiring priority, and any block we expire
     // the priority for already has lower priority than that of its children.
     int ix = buffer.cacheAttribute.getIndex();
-    double priority = buffer.cacheAttribute.getPriority();
+    float priority = buffer.cacheAttribute.getPriority();
     while (true) {
       int newIx = moveMinChildUp(ix, time, priority);
       if (newIx == -1) {
@@ -484,7 +485,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
    * @return the index of the child that was moved up; -1 if nothing was moved due to absence
    *         of the children, or a failed priority check.
    */
-  private int moveMinChildUp(int targetPos, long time, double comparePri) {
+  private int moveMinChildUp(int targetPos, long time, float comparePri) {
     int leftIx = (targetPos << 1) + 1, rightIx = leftIx + 1;
     if (leftIx >= heapSize) {
       return -1; // Buffer is at the leaf node.
@@ -493,26 +494,25 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
     if (rightIx < heapSize) {
       right = heap[rightIx];
     }
-    double leftPri = getHeapifyPriority(left, time), rightPri = getHeapifyPriority(right, time);
+    float leftPri = getHeapifyPriority(left, time), rightPri = getHeapifyPriority(right, time);
     if (comparePri >= 0 && comparePri <= leftPri && comparePri <= rightPri) {
       return -1;
     }
     if (leftPri <= rightPri) { // prefer left, cause right might be missing
       heap[targetPos] = left;
-      LrfuCacheAttribute leftCacheAttribute = (LrfuCacheAttribute) left.cacheAttribute;
-      leftCacheAttribute.indexInHeap = targetPos;
+      left.cacheAttribute.setIndex(targetPos);
       return leftIx;
     } else {
       heap[targetPos] = right;
-      LrfuCacheAttribute rightCacheAttribute = (LrfuCacheAttribute) right.cacheAttribute;
-      rightCacheAttribute.indexInHeap = targetPos;
+      assert right != null;
+      right.cacheAttribute.setIndex(targetPos);
       return rightIx;
     }
   }
 
-  private double getHeapifyPriority(LlapCacheableBuffer buf, long time) {
+  private float getHeapifyPriority(LlapCacheableBuffer buf, long time) {
     if (buf == null || buf.cacheAttribute == null) {
-      return Double.MAX_VALUE;
+      return Float.MAX_VALUE;
     }
     LrfuCacheAttribute lrfuCacheAttribute= (LrfuCacheAttribute) buf.cacheAttribute;
     if (lrfuCacheAttribute.lastUpdate != time && time >= 0) {

@@ -86,8 +86,8 @@ public abstract class LlapCacheableBuffer {
   protected abstract boolean isLocked();
 
   public interface CacheAttribute {
-    double getPriority();
-    void setPriority(double priority);
+    float getPriority();
+    void setPriority(float priority);
     long getLastUpdate();
     void setTouchTime(long time);
     int getIndex();
