@@ -28,13 +28,7 @@ import org.apache.hadoop.hive.common.io.CacheTag;
 public abstract class LlapCacheableBuffer {
   public static final int INVALIDATE_OK = 0, INVALIDATE_FAILED = 1, INVALIDATE_ALREADY_INVALID = 2;
 
-  /** Priority for cache policy (should be pretty universal). */
-  public double priority;
-  /** Last priority update time for cache policy (should be pretty universal). */
-  public long lastUpdate = -1;
-  /** Index in heap for LRFU/LFU cache policies. */
-  public int indexInHeap = LowLevelLrfuCachePolicy.NOT_IN_CACHE;
-
+  public CacheAttribute cacheAttribute;
   /** Linked list pointers for LRFU/LRU cache policies. Given that each block is in cache
    * that might be better than external linked list. Or not, since this is not concurrent. */
   public LlapCacheableBuffer prev = null;
@@ -78,8 +72,7 @@ public abstract class LlapCacheableBuffer {
   }
 
   public String toStringForCache() {
-    return "[" + Integer.toHexString(hashCode()) + " " + String.format("%1$.2f", priority) + " "
-        + lastUpdate + " " + (isLocked() ? "!" : ".") + "]";
+    return "[" + Integer.toHexString(hashCode()) + " Cache Attributes " + cacheAttribute == null ? "NONE" : cacheAttribute.toString() + " " + (isLocked() ? "!" : ".") + "]";
   }
 
   /**
@@ -91,4 +84,7 @@ public abstract class LlapCacheableBuffer {
    * @return true if the buffer is locked as part of query execution.
    */
   protected abstract boolean isLocked();
+
+  public interface CacheAttribute {
+  }
 }
