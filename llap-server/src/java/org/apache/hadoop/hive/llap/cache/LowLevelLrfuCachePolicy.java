@@ -137,12 +137,11 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
     // a locked item in either, it will remove it from cache; when we unlock, we are going to
     // put it back or update it, depending on whether this has happened. This should cause
     // most of the expensive cache update work to happen in unlock, not blocking processing.
-    LrfuCacheAttribute lrfuCacheAttribute = (LrfuCacheAttribute) buffer.cacheAttribute;
-    if (lrfuCacheAttribute == null || lrfuCacheAttribute.indexInHeap != IN_LIST || !listLock.tryLock()) {
+    if (buffer.cacheAttribute == null || buffer.cacheAttribute.getIndex() != IN_LIST || !listLock.tryLock()) {
       return;
     }
 
-    removeFromListAndUnlock(buffer, lrfuCacheAttribute);
+    removeFromListAndUnlock(buffer);
   }
 
   @Override
@@ -191,6 +190,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
       // First, update buffer priority - we have just been using it.
       LrfuCacheAttribute lrfuCacheAttribute = (LrfuCacheAttribute) buffer.cacheAttribute;
       if (lrfuCacheAttribute == null) {
+        //This should not happen but it is possible that adding the attribute on cache call happens after this call
         lrfuCacheAttribute = new LrfuCacheAttribute(F0, time);
         buffer.cacheAttribute = lrfuCacheAttribute;
       } else {
@@ -201,7 +201,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
       // Then, if the buffer was in the list, remove it.
       if (lrfuCacheAttribute.indexInHeap == IN_LIST) {
         listLock.lock();
-        removeFromListAndUnlock(buffer, lrfuCacheAttribute);
+        removeFromListAndUnlock(buffer);
       }
       // The only concurrent change that can happen when we hold the heap lock is list removal;
       // we have just ensured the item is not in the list, so we have a definite state now.
@@ -211,11 +211,10 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
       } else if (heapSize == heap.length) {
         // The buffer is not in the (full) heap. Demote the top item of the heap into the list.
         LlapCacheableBuffer demoted = heap[0];
-        LrfuCacheAttribute demotedCacheAttribute = (LrfuCacheAttribute) demoted.cacheAttribute;
         listLock.lock();
         try {
           //assert demoted.indexInHeap == 0; // Noone could have moved it, we have the heap lock.
-          demotedCacheAttribute.indexInHeap = IN_LIST;
+          demoted.cacheAttribute.setIndex(IN_LIST);
           demoted.prev = null;
           if (listHead != null) {
             demoted.next = listHead;
@@ -257,8 +256,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
       oldTail = listTail;
       while (current != null) {
         boolean canEvict = LlapCacheableBuffer.INVALIDATE_OK == current.invalidate();
-        LrfuCacheAttribute lrfuCacheAttribute = (LrfuCacheAttribute) current.cacheAttribute;
-        lrfuCacheAttribute.indexInHeap = NOT_IN_CACHE;
+        current.cacheAttribute.setIndex(NOT_IN_CACHE);
         if (canEvict) {
           current = current.prev;
         } else {
@@ -284,8 +282,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
       heapSize = 0;
       for (int i = 0; i < oldHeapSize; ++i) {
         LlapCacheableBuffer result = oldHeap[i];
-        LrfuCacheAttribute lrfuCacheAttribute = (LrfuCacheAttribute) result.cacheAttribute;
-        lrfuCacheAttribute.indexInHeap = NOT_IN_CACHE;
+        result.cacheAttribute.setIndex(NOT_IN_CACHE);
         int invalidateResult = result.invalidate();
         if (invalidateResult != LlapCacheableBuffer.INVALIDATE_OK) {
           oldHeap[i] = null; // Removed from heap without evicting.
@@ -375,12 +372,11 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
             firstCandidate = nextCandidate.prev;
           }
           nextCandidate = nextCandidate.prev;
-          removeFromListUnderLock(lockedBuffer, (LrfuCacheAttribute) lockedBuffer.cacheAttribute);
+          removeFromListUnderLock(lockedBuffer);
           continue;
         }
         // Update the state to removed-from-list, so that parallel notifyUnlock doesn't modify us.
-        LrfuCacheAttribute lrfuCacheAttribute = (LrfuCacheAttribute) nextCandidate.cacheAttribute;
-        lrfuCacheAttribute.indexInHeap = NOT_IN_CACHE;
+        nextCandidate.cacheAttribute.setIndex(NOT_IN_CACHE);
         evicted += nextCandidate.getMemoryUsage();
         nextCandidate = nextCandidate.prev;
       }
@@ -419,9 +415,8 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
 
   private void heapifyUpUnderLock(LlapCacheableBuffer buffer, long time) {
     // See heapifyDown comment.
-    LrfuCacheAttribute lrfuCacheAttribute = (LrfuCacheAttribute) buffer.cacheAttribute;
-    int ix = lrfuCacheAttribute.indexInHeap;
-    double priority = lrfuCacheAttribute.priority;
+    int ix = buffer.cacheAttribute.getIndex();
+    double priority = buffer.cacheAttribute.getPriority();
     while (true) {
       if (ix == 0) {
         break; // Buffer is at the top of the heap.
@@ -433,11 +428,10 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
         break;
       }
       heap[ix] = parent;
-      LrfuCacheAttribute parentLrfuCacheAttribute = (LrfuCacheAttribute) parent.cacheAttribute;
-      parentLrfuCacheAttribute.indexInHeap = ix;
+      parent.cacheAttribute.setIndex(ix);
       ix = parentIx;
     }
-    lrfuCacheAttribute.indexInHeap = ix;
+    buffer.cacheAttribute.setIndex(ix);
     heap[ix] = buffer;
   }
 
@@ -471,9 +465,8 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
     // down; therefore, we can update priorities of other blocks as we go for part of the heap -
     // we correct any discrepancy w/the parent after expiring priority, and any block we expire
     // the priority for already has lower priority than that of its children.
-    LrfuCacheAttribute lrfuCacheAttribute = (LrfuCacheAttribute) buffer.cacheAttribute;
-    int ix = lrfuCacheAttribute.indexInHeap;
-    double priority = lrfuCacheAttribute.priority;
+    int ix = buffer.cacheAttribute.getIndex();
+    double priority = buffer.cacheAttribute.getPriority();
     while (true) {
       int newIx = moveMinChildUp(ix, time, priority);
       if (newIx == -1) {
@@ -481,7 +474,7 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
       }
       ix = newIx;
     }
-    lrfuCacheAttribute.indexInHeap = ix;
+    buffer.cacheAttribute.setIndex(ix);
     heap[ix] = buffer;
   }
 
@@ -529,19 +522,19 @@ public final class LowLevelLrfuCachePolicy implements LowLevelCachePolicy {
     return lrfuCacheAttribute.priority;
   }
 
-  private void removeFromListAndUnlock(LlapCacheableBuffer buffer, LrfuCacheAttribute lrfuCacheAttribute) {
+  private void removeFromListAndUnlock(LlapCacheableBuffer buffer) {
     try {
-      if (lrfuCacheAttribute.indexInHeap != IN_LIST) {
+      if (buffer.cacheAttribute.getIndex() != IN_LIST) {
         return;
       }
-      removeFromListUnderLock(buffer, lrfuCacheAttribute);
+      removeFromListUnderLock(buffer);
     } finally {
       listLock.unlock();
     }
   }
 
-  private void removeFromListUnderLock(LlapCacheableBuffer buffer, LrfuCacheAttribute lrfuCacheAttribute) {
-    lrfuCacheAttribute.indexInHeap = NOT_IN_CACHE;
+  private void removeFromListUnderLock(LlapCacheableBuffer buffer) {
+    buffer.cacheAttribute.setIndex(NOT_IN_CACHE);
     boolean isTail = buffer == listTail, isHead = buffer == listHead;
     if ((isTail != (buffer.next == null)) || (isHead != (buffer.prev == null))) {
       debugDumpListOnError(buffer);
