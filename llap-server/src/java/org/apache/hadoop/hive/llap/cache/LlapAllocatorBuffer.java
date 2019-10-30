@@ -72,6 +72,12 @@ public abstract class LlapAllocatorBuffer extends LlapCacheableBuffer implements
     return allocSize;
   }
 
+  /**
+   * @return number of refs to this buffer or negative maker values like
+   * {@link org.apache.hadoop.hive.llap.cache.LlapAllocatorBuffer#INCREF_EVICTED}
+   * and
+   * {@link org.apache.hadoop.hive.llap.cache.LlapAllocatorBuffer#INCREF_FAILED}
+   */
   public int incRef() {
     return incRefInternal(true);
   }
