@@ -29,7 +29,7 @@ import org.apache.hadoop.hive.llap.cache.LowLevelCache.Priority;
 import org.apache.hadoop.hive.llap.io.api.impl.LlapIoImpl;
 
 /**
- * Legacy lock based fifo policy, this is here for testing purpose.
+ * Lock based fifo policy, this is here for testing purpose.
  */
 public class LowLevelFifoCachePolicy implements LowLevelCachePolicy {
   private final Lock lock = new ReentrantLock();
